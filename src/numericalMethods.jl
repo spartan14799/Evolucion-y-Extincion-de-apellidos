@@ -76,7 +76,7 @@ end
 
 Encuentra una raíz de `f` usando el método de la Secante con puntos iniciales `a` y `b`.
 """
-function secante(f::Function, a::Float64, b::Float64
+function secante(f::Function, a::Float64, b::Float64;
                 M::Int=50, delta::Float64=1e-5, epsilon::Float64=1e-5)
     fa = f(a)
     fb = f(b)
@@ -105,7 +105,7 @@ function secante(f::Function, a::Float64, b::Float64
         end
     end
 
-    @warm "Secante no convergio en $M iteraciones."
+    @warn "Secante no convergio en $M iteraciones."
     return (raiz = a, iteraciones = M, convergio = false)
 end
 
