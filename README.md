@@ -1,0 +1,139 @@
+# Evolución y extinción de apellidos
+
+Simulación y análisis de la **probabilidad de extinción de un apellido** usando
+un proceso de Bienaymé–Galton–Watson, resuelto con métodos numéricos clásicos
+(bisección, Newton, secante) y validado mediante simulación Monte Carlo.
+
+El proyecto está escrito en [Julia](https://julialang.org/).
+
+## ¿Qué hace?
+
+- Modela la descendencia de un apellido como un proceso de ramificación.
+- Calcula la probabilidad de extinción `q` resolviendo la ecuación de punto fijo
+  `g(t) = t` con métodos numéricos de búsqueda de raíces.
+- Simula la evolución de linajes generación a generación.
+- Contrasta el resultado teórico contra una estimación Monte Carlo.
+
+La teoría completa está en [`docs/justificacion-teorica.md`](docs/justificacion-teorica.md).
+
+## Estructura
+
+```
+.
+├── Project.toml              # Dependencias del proyecto (entorno aislado)
+├── README.md
+├── docs/
+│   └── justificacion-teorica.md   # Modelo matemático y su mapeo al código
+├── src/
+│   ├── numericalMethods.jl   # biseccion, newton, secante
+│   ├── markovModels.jl       # ModeloPBGW y cálculo/simulación de extinción
+│   ├── monteCarloSim.jl
+│   └── extincionApellidos.jl
+├── scripts/
+│   └── run_simulation.jl     # Simulación inicial de demostración
+└── test/
+    ├── runtests.jl           # Tests de los métodos numéricos
+    ├── test_markov.jl        # Tests del modelo de Markov / simulación
+    └── benchmarks.jl         # Benchmark de los métodos numéricos
+```
+
+## Requisitos
+
+- Julia 1.6 o superior (desarrollado y probado con **Julia 1.12**).
+
+Comprueba tu versión con:
+
+```powershell
+julia --version
+```
+
+## Inicializar el proyecto
+
+El proyecto usa su propio entorno (`Project.toml`), independiente de tu entorno
+global de Julia. Esto evita conflictos de dependencias. **Solo hay que hacerlo
+una vez.**
+
+Desde la raíz del proyecto, instala y precompila las dependencias:
+
+```powershell
+julia --project=. -e "import Pkg; Pkg.instantiate()"
+```
+
+Si aparece un error de resolución de paquetes (por ejemplo con `Qt6Base_jll`),
+actualiza el registro y vuelve a intentarlo:
+
+```powershell
+julia --project=. -e "import Pkg; Pkg.Registry.update(); Pkg.resolve(); Pkg.instantiate()"
+```
+
+> **Importante:** usa siempre la bandera `--project=.` al ejecutar cualquier
+> comando. Sin ella, Julia usaría tu entorno global en lugar del entorno
+> aislado del proyecto.
+
+## Ejecutar los tests
+
+Todos los comandos se ejecutan **desde la raíz del proyecto**.
+
+Tests de los métodos numéricos (bisección, Newton, secante):
+
+```powershell
+julia --project=. test/runtests.jl
+```
+
+Tests del modelo de Markov y la simulación de extinción:
+
+```powershell
+julia --project=. test/test_markov.jl
+```
+
+El segundo imprime el progreso en vivo (bloques `1/7`, `2/7`, ...) con marcas de
+tiempo, para que puedas ver que está avanzando. La primera ejecución tarda más
+porque Julia precompila las dependencias; las siguientes son más rápidas.
+
+Salida esperada (resumen):
+
+```
+Metodos numericos |   25     25   (todos pasan)
+Modelo de Markov / Galton-Watson |   28     28   (todos pasan)
+```
+
+## Ejecutar la simulación
+
+```powershell
+julia --project=. scripts/run_simulation.jl
+```
+
+Muestra, para un modelo de natalidad alta y otro de natalidad baja:
+
+- La media de descendencia `m` y el régimen (subcrítico / crítico / supercrítico).
+- La probabilidad de extinción teórica `q`.
+- Trayectorias de ejemplo de linajes individuales.
+- Una validación Monte Carlo que compara la frecuencia de extinción simulada
+  contra la `q` teórica.
+
+## Benchmark (opcional)
+
+Para medir el rendimiento de los métodos numéricos:
+
+```powershell
+julia --project=. test/benchmarks.jl
+```
+
+Usa el paquete `BenchmarkTools` si está disponible; si no, recurre a una
+medición simple con la librería estándar. Para instalar `BenchmarkTools` en el
+entorno del proyecto:
+
+```powershell
+julia --project=. -e "import Pkg; Pkg.add(\"BenchmarkTools\")"
+```
+
+## Solución de problemas
+
+- **`Package X not found in current path`**: olvidaste `--project=.`, o falta
+  ejecutar `Pkg.instantiate()`. Revisa la sección *Inicializar el proyecto*.
+- **El test del modelo de Markov parece colgado**: no lo está; el bloque de
+  Monte Carlo tarda unos segundos. Verás el mensaje `7/7 ... puede tardar unos
+  seg` justo antes. La primera ejecución además precompila `Distributions`.
+- **Error de resolución con `Qt6Base_jll` u otro `_jll`**: proviene del entorno
+  global. El `Project.toml` del proyecto evita este problema; asegúrate de usar
+  `--project=.`.
