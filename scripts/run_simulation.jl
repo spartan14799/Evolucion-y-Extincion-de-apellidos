@@ -24,7 +24,7 @@ function resumen_modelo(nombre, modelo)
 end
 
 function main()
-    rng = MersenneTwister(42)  # semilla fija para reproducibilidad
+    rng = MersenneTwister()  # semilla fija para reproducibilidad
 
     println("="^60)
     println("Evolucion y extincion de apellidos - Simulacion inicial")
