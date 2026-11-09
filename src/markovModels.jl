@@ -1,5 +1,11 @@
 using Distributions
 
+"""
+    ModeloPBGW
+
+Estructura que representa un Proceso de Bienayme-Galton-Watson para unico apellidos.
+Almacena la distribucion de probabilidad de descendencia.
+"""
 struct ModeloPBGW
     pk::Vector{Float64}
 
