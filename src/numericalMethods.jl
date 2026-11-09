@@ -70,3 +70,45 @@ function newton(f::Function, df::Function, x0::Float64;
     @warn "Newton no convergio en $M iteraciones."
     return (raiz = x0, iteraciones = M, convergio = false)
 end
+
+"""
+    secante(f, a, b; M=50, delta=1e-5, epsilon=1e-5)
+
+Encuentra una raíz de `f` usando el método de la Secante con puntos iniciales `a` y `b`.
+"""
+function secante(f::Function, a::Float64, b::Float64
+                M::Int=50, delta::Float64=1e-5, epsilon::Float64=1e-5)
+    fa = f(a)
+    fb = f(b)
+
+    for k in 2:M
+        #Intercambio para asegurar que 'a' sea la mejor aproximacion
+        if abs(fa) > abs(fb)
+            a, b = b, a
+            fa, fb = fb, fa
+        end
+
+        #No dividir por 0
+        if fb - fa == 0
+            error("Division por cero, iteracion: $k")
+        end
+
+        # Calculo del nuevo punto
+        s = (b-a) / (fb - fa)
+        b = a
+        fb = fa
+        a = a - fa * s
+        fa = f(a)
+
+        if abs(fa) < epsilon || abs(b-a) < delta
+            return (raiz = a, iteraciones = k, convergio = true)
+        end
+    end
+
+    @warm "Secante no convergio en $M iteraciones."
+    return (raiz = a, iteraciones = M, convergio = false)
+end
+
+
+
+
