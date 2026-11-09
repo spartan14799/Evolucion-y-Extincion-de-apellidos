@@ -6,7 +6,7 @@ central del cálculo.
 
 ---
 
-## 1. El problema
+## El problema
 
 La transmisión de un apellido sigue, de forma simplificada, la misma lógica que
 la transmisión de un linaje por línea paterna: cada portador del apellido tiene
@@ -22,9 +22,9 @@ Bienaymé–Galton–Watson (BGW)**, también conocido como proceso de ramificac
 
 ---
 
-## 2. El proceso de Galton-Watson
+## El proceso de Galton-Watson
 
-### 2.1 Definición
+### Definición
 
 Consideramos una población de portadores de un apellido que evoluciona en
 generaciones discretas `n = 0, 1, 2, ...`. Sea `Z_n` el número de portadores en
@@ -40,7 +40,7 @@ $$Z_{n+1} = \sum_{i=1}^{Z_n} X_i$$
 - Si `Z_n = 0`, el apellido se ha **extinguido** y permanece en 0 para siempre
   (estado absorbente).
 
-### 2.2 La distribución de descendencia
+### La distribución de descendencia
 
 La ley común de `X_i` se describe mediante la secuencia de probabilidades:
 
@@ -65,7 +65,7 @@ El modelo admite dos formas de construcción:
 
 ---
 
-## 3. La esperanza y los tres regímenes
+## La esperanza y los tres regímenes
 
 El parámetro más importante del proceso es la **media de descendencia**:
 
@@ -92,7 +92,7 @@ indefinidamente.
 
 ---
 
-## 4. Cálculo de la probabilidad de extinción
+## Cálculo de la probabilidad de extinción
 
 ### 4.1 La función generadora de probabilidad
 
@@ -110,7 +110,7 @@ Propiedades que usaremos:
 - `g` es continua, creciente y convexa en `[0, 1]`.
 - `g'(1) = m` (la derivada en 1 es la media de descendencia).
 
-### 4.2 La ecuación de punto fijo
+### La ecuación de punto fijo
 
 El resultado fundamental de la teoría de procesos de ramificación establece que
 la **probabilidad de extinción `q` es el menor punto fijo de `g` en `[0, 1]`**,
@@ -123,7 +123,7 @@ $$g(q) = q$$
   `(0, 1)`, y **esa** es la probabilidad de extinción.
 - Si `m ≤ 1`, la única solución en `[0, 1]` es `q = 1`.
 
-### 4.3 Conexión con los métodos numéricos
+### Conexión con los métodos numéricos
 
 Encontrar `q` equivale a **resolver una ecuación no lineal**, que es exactamente
 el propósito de `src/numericalMethods.jl`. Reescribimos el punto fijo como una
@@ -147,7 +147,7 @@ Entonces `q` es la raíz de `h(t) = 0` en `(0, 1)`. La función
 > pasos de bisección y luego lanza la secante en un intervalo estrecho alrededor
 > de la aproximación, donde el único punto fijo es `q`.
 
-### 4.4 Ejemplo con solución analítica
+### Ejemplo con solución analítica
 
 Para validar, consideremos `p_0 = 0.4`, `p_1 = 0`, `p_2 = 0.6` (es decir,
 `pk = [0.4, 0.0, 0.6]`). Aquí `m = 2 · 0.6 = 1.2 > 1`, luego es supercrítico.
@@ -167,12 +167,12 @@ valor.
 
 ---
 
-## 5. Simulación estocástica (Monte Carlo)
+## Simulación estocástica (Monte Carlo)
 
 Además del cálculo teórico, el proyecto incluye una **simulación directa** del
 proceso, que sirve como validación independiente.
 
-### 5.1 Una trayectoria
+### Una trayectoria
 
 `simular_generaciones(modelo, generaciones)` simula un linaje concreto:
 
@@ -189,13 +189,13 @@ linaje supera ese umbral se considera **establecido** (ya no se extinguirá) y l
 población se fija al tope. Esto no altera el resultado de extinción y mantiene el
 coste acotado.
 
-### 5.2 Estimación de la probabilidad de extinción
+### Estimación de la probabilidad de extinción
 
 `frecuencia_extincion(modelo, generaciones; n_sim)` ejecuta `n_sim` simulaciones
 independientes y devuelve la fracción de linajes que terminaron extintos. Es una
 estimación empírica de `q` por el método de Monte Carlo.
 
-### 5.3 Validación cruzada
+### Validación cruzada
 
 El diseño permite obtener `q` por dos caminos distintos:
 
@@ -214,7 +214,7 @@ Resultados observados en el proyecto:
 
 ---
 
-## 6. Mapa del código
+## Mapa del código
 
 | Concepto matemático | Función / tipo | Archivo |
 |---|---|---|
@@ -231,12 +231,4 @@ El flujo esencial: `probabilidad_extincion` envuelve `fgp` en `h(t) = g(t) − t
 y se la entrega a `biseccion` / `secante` de `numericalMethods.jl` para hallar
 la raíz, que es la probabilidad de extinción buscada.
 
----
-
-## 7. Referencias
-
-- Proceso de Galton-Watson / procesos de ramificación (teoría clásica de
-  probabilidad).
-- Watson, H. W.; Galton, F. (1875). *On the probability of the extinction of
-  families.*
 - La distribución de Poisson como modelo del número de descendientes.
