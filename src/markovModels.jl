@@ -27,3 +27,25 @@ struct ModeloPBGW
         new(pk)
     end
 end
+
+"""
+Calcula el promedio de hijos por individuo (Esperanza m = E[X]).
+"""
+function esperanza(modelo::ModeloPBGW)
+    return sum((k - 1) * modelo.pk[k] for k in 1:length(modelo.pk))
+end
+
+"""
+Verifica si la extincion es matematicamente 100% segura (m <= 1).
+"""
+function es_extincion_segura(modelo::ModeloPBGW)
+    return esperanza(modelo) <= 1.0
+end
+
+"""
+Evalua la Funcion Generadora de Probabilidad
+"""
+function fgp(modelo::ModeloPBGW, t::Float64)
+    return sum(modelo.pk[k] * (t^(k - 1)) for k in 1:length(modelo.pk))
+end
+
