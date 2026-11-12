@@ -23,17 +23,21 @@ La teoría completa está en [`docs/justificacion-teorica.md`](docs/justificacio
 ├── Project.toml              # Dependencias del proyecto (entorno aislado)
 ├── README.md
 ├── docs/
-│   └── justificacion-teorica.md   # Modelo matemático y su mapeo al código
+│   ├── justificacion-teorica.md   # Modelo matemático y su mapeo al código
+│   └── modelo-estacionario.md     # Modelo de población constante (fijación)
 ├── src/
 │   ├── numericalMethods.jl   # biseccion, newton, secante
 │   ├── markovModels.jl       # ModeloPBGW y cálculo/simulación de extinción
 │   ├── monteCarloSim.jl
+│   ├── stacional-model.jl    # Modelo estacionario (población constante)
 │   └── extincionApellidos.jl
 ├── scripts/
-│   └── run_simulation.jl     # Simulación inicial de demostración
+│   ├── run_simulation.jl         # Simulación inicial de demostración
+│   └── run_stacional_model.jl    # Ejecuta el modelo estacionario
 └── test/
     ├── runtests.jl           # Tests de los métodos numéricos
     ├── test_markov.jl        # Tests del modelo de Markov / simulación
+    ├── test_stacional.jl     # Tests del modelo estacionario
     └── benchmarks.jl         # Benchmark de los métodos numéricos
 ```
 
@@ -86,6 +90,12 @@ Tests del modelo de Markov y la simulación de extinción:
 julia --project=. test/test_markov.jl
 ```
 
+Tests del modelo estacionario (población constante / fijación):
+
+```powershell
+julia --project=. test/test_stacional.jl
+```
+
 El segundo imprime el progreso en vivo (bloques `1/7`, `2/7`, ...) con marcas de
 tiempo, para que puedas ver que está avanzando. La primera ejecución tarda más
 porque Julia precompila las dependencias; las siguientes son más rápidas.
@@ -110,6 +120,27 @@ Muestra, para un modelo de natalidad alta y otro de natalidad baja:
 - Trayectorias de ejemplo de linajes individuales.
 - Una validación Monte Carlo que compara la frecuencia de extinción simulada
   contra la `q` teórica.
+
+## Ejecutar el modelo estacionario (población constante)
+
+Este modelo mantiene el tamaño de la población fijo y simula la deriva hacia la
+**fijación** de un único apellido. Teoría y detalle de parámetros en
+[`docs/modelo-estacionario.md`](docs/modelo-estacionario.md).
+
+```powershell
+julia --project=. scripts/run_stacional_model.jl
+```
+
+Puedes cambiar los parámetros editando el bloque `PARÁMETROS DE LA SIMULACIÓN`
+del script, o mediante variables de entorno (tienen prioridad):
+
+```bash
+POBLACION_INICIAL=20 APELLIDOS_INICIALES=6 SEMILLA=7 \
+    julia --project=. scripts/run_stacional_model.jl
+```
+
+Variables reconocidas: `POBLACION_INICIAL` (par), `APELLIDOS_INICIALES`,
+`TAMANO_PAREJA`, `MAX_GENERACIONES` y `SEMILLA` (`nothing` para azar).
 
 ## Benchmark (opcional)
 
