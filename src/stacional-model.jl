@@ -16,18 +16,23 @@ function siguiente_generacion(poblacion::Vector{Int}, rng::AbstractRNG=Random.de
 end
 
 """
-Simula la evolución hasta la fijación de un único apellido, partiendo de un estado inicial dado.
+Simula la evolución hasta la fijación de un único apellido, o hasta alcanzar el límite de generaciones.
 """
-function simular_fijacion(estado_inicial::Vector{Int}; rng::AbstractRNG=Random.default_rng())
+function simular_fijacion(estado_inicial::Vector{Int}; max_generaciones::Int=10_000, rng::AbstractRNG=Random.default_rng())
     poblacion = copy(estado_inicial)
     historial = [copy(poblacion)]
     generaciones = 0
     
-    while length(unique(poblacion)) > 1
+    # Continúa mientras haya más de 1 apellido Y no choquemos con el límite
+    while length(unique(poblacion)) > 1 && generaciones < max_generaciones
         poblacion = siguiente_generacion(poblacion, rng)
         push!(historial, copy(poblacion))
         generaciones += 1
     end
     
-    return (ganador = poblacion[1], generaciones = generaciones, historial = historial)
+    # Determinamos si el ciclo terminó porque ganó alguien, o porque se nos acabó el tiempo
+    logro_fijacion = length(unique(poblacion)) == 1
+    ganador = logro_fijacion ? poblacion[1] : nothing
+    
+    return (ganador = ganador, generaciones = generaciones, historial = historial, fijacion = logro_fijacion)
 end
