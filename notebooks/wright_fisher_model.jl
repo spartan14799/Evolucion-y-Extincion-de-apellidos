@@ -314,8 +314,8 @@ begin
 	
 	etiquetas_aps = ["Ap. $a" for a in grafo_vis.apellidos]
 	
-	# Paleta cálida y clara: garantiza máximo contraste con texto negro en todas las celdas
-	cmap_calor = cgrad([:white, "#fef3c7", "#fde68a", "#fcd34d", "#fbbf24"], [0.0, 0.02, 0.3, 0.7, 1.0])
+	# Paleta cálida hacia tonos rojos brillantes para valores altos (sin oscurecer el fondo)
+	cmap_calor = cgrad([:white, "#fef08a", "#fdba74", "#f87171", "#ef4444"], [0.0, 0.05, 0.35, 0.7, 1.0])
 	fsize = n_a <= 6 ? 12 : (n_a <= 10 ? 10 : 8)
 	font_fam = Sys.iswindows() ? "arialbd" : "sans-serif"
 	
