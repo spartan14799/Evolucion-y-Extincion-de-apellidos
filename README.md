@@ -87,7 +87,7 @@ julia --version             # debe decir 1.12.x dentro de esta carpeta
 ### Pipeline de puesta a punto (resumen)
 
 ```bash
-git clone <repo> && cd Evolucion-y-Extincion-de-apellidos
+git clone https://github.com/spartan14799/Evolucion-y-Extincion-de-apellidos.git && cd Evolucion-y-Extincion-de-apellidos
 juliaup add 1.12 && juliaup override set 1.12   # misma versión de Julia
 make instantiate                                 # instala las deps EXACTAS del Manifest.toml
 make pluto                                       # lanza los notebooks
