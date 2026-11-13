@@ -1,0 +1,181 @@
+# src/graphModel.jl
+
+using Random
+using StatsBase
+
+mutable struct GrafoApellidos
+    apellidos::Vector{Int}
+    conteos::Dict{Int,Int}
+    compatibles::Dict{Int,Vector{Int}}
+    probabilidades::Dict{Int,Dict{Int,Float64}}
+end
+
+"""
+    contar_apellidos(poblacion::Vector{Int}) -> Dict{Int,Int}
+
+Cuenta la cantidad de personas por cada ID de apellido en la generación actual.
+"""
+function contar_apellidos(poblacion::Vector{Int})
+    conteos = Dict{Int,Int}()
+    for id in poblacion
+        conteos[id] = get(conteos, id, 0) + 1
+    end
+    return conteos
+end
+
+"""
+    GrafoApellidos(poblacion; compatibles=nothing, probabilidades=nothing)
+
+Constructor que inicializa los vértices y conteos. 
+- Si no se provee `compatibles`, se asume un grafo completo.
+- Si no se provee `probabilidades`, se calculan las proporcionales por defecto.
+"""
+function GrafoApellidos(poblacion::Vector{Int}; compatibles=nothing, probabilidades=nothing)
+    conteos = contar_apellidos(poblacion)
+    apellidos = sort(collect(keys(conteos)))
+
+    comp = Dict{Int,Vector{Int}}()
+    if compatibles === nothing
+        # Por defecto: grafo completo
+        for i in apellidos
+            comp[i] = copy(apellidos)
+        end
+    else
+        comp = compatibles
+    end
+
+    # Inicialmente vacío
+    grafo = GrafoApellidos(apellidos, conteos, comp, Dict{Int,Dict{Int,Float64}}())
+    
+    # Asignación de probabilidades (default o custom)
+    if probabilidades === nothing
+        grafo.probabilidades = probabilidades_proporcionales(grafo)
+    else
+        grafo.probabilidades = probabilidades
+    end
+
+    return grafo
+end
+
+"""
+    probabilidades_proporcionales(grafo::GrafoApellidos) -> Dict{Int,Dict{Int,Float64}}
+
+Calcula las probabilidades de transición P(i → j) de forma proporcional
+al conteo del apellido destino j, considerando solo los apellidos
+compatibles con i.
+"""
+function probabilidades_proporcionales(grafo::GrafoApellidos)
+    probabilidades = Dict{Int,Dict{Int,Float64}}()
+    
+    for i in grafo.apellidos
+        probabilidades[i] = Dict{Int,Float64}()
+        # Denominador: suma de personas de los apellidos compatibles con i
+        total_compatibles = 0
+        if haskey(grafo.compatibles, i)
+            for j in grafo.compatibles[i]
+                total_compatibles += get(grafo.conteos, j, 0)
+            end
+        end
+        
+        if total_compatibles > 0
+            for j in grafo.compatibles[i]
+                conteo_j = get(grafo.conteos, j, 0)
+                probabilidades[i][j] = conteo_j / total_compatibles
+            end
+        end
+    end
+    
+    return probabilidades
+end
+
+"""
+    probabilidades_salientes(grafo::GrafoApellidos, i::Int) -> Dict{Int,Float64}
+
+Devuelve el diccionario de probabilidades salientes para el vértice `i`.
+"""
+function probabilidades_salientes(grafo::GrafoApellidos, i::Int)
+    return get(grafo.probabilidades, i, Dict{Int,Float64}())
+end
+
+"""
+    validar_grafo(grafo::GrafoApellidos)
+
+Verifica que no haya probabilidades negativas y que la suma de las 
+probabilidades salientes de cada vértice sea aproximadamente 1.0.
+Lanza un error explícito si el grafo es inválido.
+"""
+function validar_grafo(grafo::GrafoApellidos)
+    for i in grafo.apellidos
+        probs = probabilidades_salientes(grafo, i)
+        suma = 0.0
+        
+        for (j, p) in probs
+            if p < 0.0
+                error("Probabilidad negativa encontrada de vértice $i a $j: $p")
+            end
+            suma += p
+        end
+        
+        if !isapprox(suma, 1.0; atol=1e-5)
+            error("Las probabilidades salientes del vértice $i suman $suma, se esperaba 1.0")
+        end
+    end
+    return true
+end
+
+"""
+    siguiente_generacion_grafo(poblacion, rng=Random.default_rng(); probabilidades_custom=nothing, p_herencia=0.5)
+
+Construye el grafo para la generación actual, lo valida, y computa la siguiente
+generación estocásticamente, manteniendo el tamaño poblacional N constante.
+
+Para cada hijo:
+1. Se elige un apellido **origen** `i` al azar, ponderado por su frecuencia
+   (quién inicia el emparejamiento).
+2. Se sortea la **pareja** `j` según la distribución saliente `P(i -> j)`.
+3. El hijo **hereda** el apellido del origen `i` con probabilidad `p_herencia`,
+   o el de la pareja `j` con probabilidad `1 - p_herencia`.
+
+El default `p_herencia = 0.5` representa que el origen es hombre o mujer con
+igual probabilidad y que el apellido lo transmite el hombre: la mitad de las
+veces el hijo hereda el apellido del origen y la otra mitad el de la pareja.
+Ajustar `p_herencia` permite sesgar la transmisión hacia el origen (`> 0.5`) o
+hacia la pareja (`< 0.5`) para experimentar.
+"""
+function siguiente_generacion_grafo(poblacion::Vector{Int}, rng::AbstractRNG=Random.default_rng();
+                                    probabilidades_custom=nothing, p_herencia::Float64=0.5)
+    N = length(poblacion)
+    if N == 0
+        return Int[]
+    end
+    if !(0.0 <= p_herencia <= 1.0)
+        error("p_herencia debe estar en [0, 1] (recibido $p_herencia).")
+    end
+
+    # Construir grafo y  Validar
+    grafo = GrafoApellidos(poblacion; probabilidades=probabilidades_custom)
+    validar_grafo(grafo)
+
+    # Reconstruir N personas
+    nueva_poblacion = Vector{Int}(undef, N)
+
+    # Preparar el muestreo del 'origen' ponderado por la cantidad de personas (quién inicia)
+    apellidos_activos = grafo.apellidos
+    pesos_origen = Weights([grafo.conteos[i] for i in apellidos_activos])
+
+    for k in 1:N
+        # 1. Elegir el apellido origen i al azar, ponderado por su frecuencia.
+        i = sample(rng, apellidos_activos, pesos_origen)
+
+        # 2. Sortear la pareja j según la distribución saliente P(i -> j).
+        probs_i = probabilidades_salientes(grafo, i)
+        destinos = collect(keys(probs_i))
+        pesos_destinos = Weights(collect(values(probs_i)))
+        j = sample(rng, destinos, pesos_destinos)
+
+        # 3. El hijo hereda i con probabilidad p_herencia, o j con 1 - p_herencia.
+        nueva_poblacion[k] = rand(rng) < p_herencia ? i : j
+    end
+
+    return nueva_poblacion
+end

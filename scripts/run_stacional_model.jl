@@ -1,122 +1,89 @@
 # scripts/run_stacional_model.jl
-#
-# Ejecuta una simulacion del modelo estacionario (poblacion constante) y muestra
-# la evolucion de los apellidos generacion por generacion hasta la fijacion.
-#
-# Ejecutar desde la raiz del proyecto con:
-#     julia --project=. scripts/run_stacional_model.jl
-#
-# -----------------------------------------------------------------------------
-# COMO CAMBIAR LOS PARAMETROS
-# -----------------------------------------------------------------------------
-# Edita el bloque "PARAMETROS DE LA SIMULACION" dentro de `main()` mas abajo, o
-# exporta variables de entorno antes de ejecutar (tienen prioridad sobre los
-# valores por defecto del codigo):
-#
-#     POBLACION_INICIAL=20 APELLIDOS_INICIALES=6 SEMILLA=7 \
-#         julia --project=. scripts/run_stacional_model.jl
-#
-# Variables reconocidas:
-#   POBLACION_INICIAL    Numero de individuos (debe ser par). Def: 10
-#   APELLIDOS_INICIALES  Apellidos distintos iniciales (<= poblacion). Def: 4
-#   SEMILLA              Entero para reproducibilidad, o "nothing" para azar. Def: 42
-#   TAMANO_PAREJA        Individuos por grupo que eligen un apellido. Def: 2
-#   MAX_GENERACIONES     Tope de seguridad de generaciones. Def: 10000
 
 using Random
 using StatsBase
+using Printf
 
+# Incluimos el modelo que ahora usa grafos por debajo
 include(joinpath(@__DIR__, "..", "src", "stacional-model.jl"))
 
-"""
-    configurar_poblacion(tamano, num_apellidos; tamano_pareja = 2, rng)
-
-Construye una poblacion inicial de `tamano` individuos con `num_apellidos`
-apellidos distintos (ids `1:num_apellidos`), rellenando el resto al azar.
-
-Valida que `tamano` sea divisible por `tamano_pareja` y que no haya mas
-apellidos que individuos.
-"""
-function configurar_poblacion(tamano::Int, num_apellidos::Int;
-                              tamano_pareja::Int = 2,
-                              rng = Random.default_rng())
-    if tamano % tamano_pareja != 0
-        error("La poblacion inicial ($tamano) debe ser divisible por el tamano de pareja ($tamano_pareja).")
-    end
-    if num_apellidos > tamano
-        error("No puede haber mas apellidos ($num_apellidos) que personas ($tamano).")
-    end
-    if num_apellidos < 1
-        error("Debe haber al menos un apellido.")
-    end
-    poblacion = collect(1:num_apellidos)
-    faltantes = tamano - num_apellidos
-    if faltantes > 0
-        append!(poblacion, rand(rng, 1:num_apellidos, faltantes))
-    end
-
-    return shuffle(rng, poblacion)
-end
-
-# Lee una variable de entorno como Int, con valor por defecto.
-_env_int(nombre, def) = haskey(ENV, nombre) ? parse(Int, ENV[nombre]) : def
-
 function main()
-    # ==========================================
-    # PARAMETROS DE LA SIMULACION
-    # (editables aqui, o via variables de entorno)
-    # ==========================================
-    POBLACION_INICIAL   = _env_int("POBLACION_INICIAL", 10)    # Debe ser par
-    APELLIDOS_INICIALES = _env_int("APELLIDOS_INICIALES", 4)   # <= poblacion
-    TAMANO_PAREJA       = _env_int("TAMANO_PAREJA", 2)
-    MAX_GENERACIONES    = _env_int("MAX_GENERACIONES", 10_000)
+    println("="^60)
+    println("Simulación de Modelo Estacionario (Grafo Dirigido)")
+    println("="^60)
 
-    # Semilla: entero fijo (reproducible) o `nothing` (azar).
-    SEMILLA = if haskey(ENV, "SEMILLA")
+    # 1. Configuración (lee variables de entorno o usa defaults)
+    # Ejemplo de uso: POBLACION_INICIAL="1,1,1,2,2,3,3" julia scripts/run_stacional_model.jl
+    estado_str = get(ENV, "POBLACION_INICIAL", "1,1,2,2,3,3,4,4")
+    estado_inicial = parse.(Int, split(estado_str, ","))
+    max_gens = parse(Int, get(ENV, "MAX_GENERACIONES", "100"))
+
+    # Semilla: entero fijo (reproducible) o azar.
+    # SEMILLA="nothing" (o variable ausente con default aleatorio) => azar.
+    semilla = if haskey(ENV, "SEMILLA")
         ENV["SEMILLA"] == "nothing" ? nothing : parse(Int, ENV["SEMILLA"])
     else
-        42
+        nothing
     end
 
-    rng = SEMILLA !== nothing ? MersenneTwister(SEMILLA) : Random.default_rng()
-    parametros = ParametrosModelo(tamano_pareja = TAMANO_PAREJA,
-                                  max_generaciones = MAX_GENERACIONES)
+    println("Población inicial N = $(length(estado_inicial)): $estado_inicial")
+    println("Máximo de generaciones: $max_gens")
+    println("Semilla: $(semilla === nothing ? "aleatoria" : semilla)")
 
-    println("="^64)
-    println("SIMULACION DE MARKOV: POBLACION CONSTANTE")
-    println("Individuos: $POBLACION_INICIAL | Apellidos iniciales distintos: $APELLIDOS_INICIALES")
-    println("Tamano de pareja: $TAMANO_PAREJA | Semilla: $(SEMILLA === nothing ? "aleatoria" : SEMILLA)")
-    println("="^64)
+    # 2. Imprimir la matriz/tabla de probabilidades de la primera generación
+    println("\n--- Grafo de la Generación 0 ---")
+    grafo_inicial = GrafoApellidos(estado_inicial)
+    println("Vértices y conteos: ", grafo_inicial.conteos)
+    println("Tabla de probabilidades salientes P(i -> j):")
+    for i in grafo_inicial.apellidos
+        print("Desde el apellido $i: ")
+        probs = probabilidades_salientes(grafo_inicial, i)
+        suma = 0.0
+        for (j, p) in sort(collect(probs))
+            @printf("%d=%.3f  ", j, p)
+            suma += p
+        end
+        @printf("| Suma: %.1f\n", suma)
+    end
+    println("--------------------------------\n")
 
-    # Configurar estado inicial.
-    estado_inicial = configurar_poblacion(POBLACION_INICIAL, APELLIDOS_INICIALES;
-                                           tamano_pareja = TAMANO_PAREJA, rng = rng)
+    # 3. Punto de extensión para probabilidades custom (documentado)
+    # Para usar probabilidades custom en cada generación, puedes definir una función 
+    # y pasarla a ParametrosModelo(fijar_probabilidades=mi_funcion_custom).
+    #
+    # function mi_estrategia_custom(poblacion_actual::Vector{Int})
+    #     # Retornar un Dict{Int, Dict{Int, Float64}} válido
+    #     # ...
+    # end
 
-    # Ejecutar la simulacion.
-    resultado = simular_fijacion(estado_inicial; parametros = parametros, rng = rng)
+    # 4. Configurar y correr la simulación (usando el default proporcional)
+    parametros = ParametrosModelo(max_generaciones=max_gens)
+    rng = semilla === nothing ? MersenneTwister() : MersenneTwister(semilla)
+    
+    println("Corriendo simulación estocástica por pareja...")
+    resultado = simular_fijacion(estado_inicial; parametros=parametros, rng=rng)
 
-    # Mostrar la evolucion estado por estado.
-    println("\n--- EVOLUCION POR GENERACION ---")
-    for (gen, estado) in enumerate(resultado.historial)
-        n_gen = gen - 1
-        distribucion = countmap(estado)
-
-        resumen = join(["ID $k:$v" for (k, v) in sort(collect(distribucion))], ", ")
-        println("Gen $n_gen | Estado: $estado")
-        println("        ↳ Frecuencias: [$resumen]")
+    # 5. Imprimir la evolución usando countmap de StatsBase
+    println("\n--- Evolución de los Linajes ---")
+    for g in 1:length(resultado.historial)
+        # Mostrar las primeras 5 y las últimas 5 generaciones para no saturar la consola
+        if g <= 5 || g > length(resultado.historial) - 5
+            cmap = countmap(resultado.historial[g])
+            str_cmap = join(["$k=>$v" for (k,v) in sort(collect(cmap))], ", ")
+            println("Gen $(g-1): $str_cmap")
+        elseif g == 6
+            println("... (saltando generaciones intermedias) ...")
+        end
     end
 
-    println("-"^64)
+    # 6. Veredicto final
+    println("\n--- Resultado Final ---")
+    println("Fijación alcanzada: ", resultado.fijacion ? "Sí" : "No")
+    println("Generaciones transcurridas: ", resultado.generaciones)
     if resultado.fijacion
-        println("RESULTADO FINAL: FIJACION ALCANZADA")
-        println("El apellido dominante fue el ID: $(resultado.ganador)")
-        println("Generaciones hasta la extincion del resto: $(resultado.generaciones)")
-    else
-        println("RESULTADO FINAL: LIMITE ALCANZADO")
-        println("La simulacion se detuvo por seguridad tras $(resultado.generaciones) generaciones.")
-        println("Aun sobrevivian varios apellidos.")
+        println("Apellido ganador: ", resultado.ganador)
     end
-    println("="^64)
+    println("============================================================")
 end
 
 main()
