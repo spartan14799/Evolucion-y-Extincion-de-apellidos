@@ -4,6 +4,7 @@ using Test
 using Printf
 
 include(joinpath(@__DIR__, "..", "src", "graphModel.jl"))
+include(joinpath(@__DIR__, "..", "src", "stacional-model.jl"))
 
 const _T0 = Ref(time())
 paso(msg) = @printf("[%6.1fs] %s\n", time() - _T0[], msg)
@@ -220,4 +221,19 @@ println("Conteos G0:   ", contar_apellidos(pob_t0))
 pob_t1 = siguiente_generacion_grafo(pob_t0, rng_demo)
 println("Generación 1: ", pob_t1)
 println("Conteos G1:   ", contar_apellidos(pob_t1))
+println("-------------------\n")
+
+println("\n--- DEMO TASK 5 ---")
+rng_demo = MersenneTwister(123)
+demo_inicial = [1, 2, 3, 4, 5, 6, 7, 8]
+params_demo = ParametrosModelo(max_generaciones=200)
+
+println("Iniciando simulación de fijación para: ", demo_inicial)
+resultado = simular_fijacion(demo_inicial; parametros=params_demo, rng=rng_demo)
+
+println("¿Se alcanzó la fijación?: ", resultado.fijacion ? "Sí" : "No")
+println("Generaciones transcurridas: ", resultado.generaciones)
+println("Apellido ganador: ", resultado.ganador)
+println("Historial (length): ", length(resultado.historial))
+println("Estado final: ", resultado.historial[end])
 println("-------------------\n")
