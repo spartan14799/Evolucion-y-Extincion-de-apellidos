@@ -1,5 +1,8 @@
 # src/graphModel.jl
 
+using Random
+using StatsBase
+
 mutable struct GrafoApellidos
     apellidos::Vector{Int}
     conteos::Dict{Int,Int}
@@ -118,4 +121,44 @@ function validar_grafo(grafo::GrafoApellidos)
         end
     end
     return true
+end
+
+"""
+    siguiente_generacion_grafo(poblacion::Vector{Int}, rng::AbstractRNG=Random.default_rng(); probabilidades_custom=nothing)
+
+Construye el grafo para la generación actual, lo valida, y computa la siguiente 
+generación estocásticamente, manteniendo el tamaño poblacional N constante.
+"""
+function siguiente_generacion_grafo(poblacion::Vector{Int}, rng::AbstractRNG=Random.default_rng(); probabilidades_custom=nothing)
+    N = length(poblacion)
+    if N == 0
+        return Int[]
+    end
+    
+    # Construir grafo y  Validar
+    grafo = GrafoApellidos(poblacion; probabilidades=probabilidades_custom)
+    validar_grafo(grafo)
+    
+    # Reconstruir N personas
+    nueva_poblacion = Vector{Int}(undef, N)
+    
+    # Preparar el muestreo del 'origen' ponderado por la cantidad de personas (quién inicia)
+    apellidos_activos = grafo.apellidos
+    pesos_origen = Weights([grafo.conteos[i] for i in apellidos_activos])
+    
+    for k in 1:N
+        # Elegir el apellido origen i al azar, ponderado por su frecuencia
+        i = sample(rng, apellidos_activos, pesos_origen)
+        
+        # Sortear la pareja j según la distribución saliente P(i -> j)
+        probs_i = probabilidades_salientes(grafo, i)
+        destinos = collect(keys(probs_i))
+        pesos_destinos = Weights(collect(values(probs_i)))
+        j = sample(rng, destinos, pesos_destinos)
+        
+        # El hijo hereda el apellido del origen i
+        nueva_poblacion[k] = i
+    end
+    
+    return nueva_poblacion
 end
