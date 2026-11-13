@@ -28,16 +28,15 @@ La teoría completa está en [`docs/justificacion-teorica.md`](docs/justificacio
 ├── src/
 │   ├── numericalMethods.jl   # biseccion, newton, secante
 │   ├── markovModels.jl       # ModeloPBGW y cálculo/simulación de extinción
-│   ├── monteCarloSim.jl
-│   ├── stacional-model.jl    # Modelo estacionario (población constante)
-│   └── extincionApellidos.jl
+│   ├── graphModel.jl         # Motor del modelo estacionario como grafo dirigido
+│   └── stacional-model.jl    # Modelo estacionario (grafo dirigido, población constante)
 ├── scripts/
 │   ├── run_simulation.jl         # Simulación inicial de demostración
 │   └── run_stacional_model.jl    # Ejecuta el modelo estacionario
 └── test/
     ├── runtests.jl           # Tests de los métodos numéricos
     ├── test_markov.jl        # Tests del modelo de Markov / simulación
-    ├── test_stacional.jl     # Tests del modelo estacionario
+    ├── test_grafo.jl         # Tests del modelo estacionario (grafo dirigido)
     └── benchmarks.jl         # Benchmark de los métodos numéricos
 ```
 
@@ -90,10 +89,10 @@ Tests del modelo de Markov y la simulación de extinción:
 julia --project=. test/test_markov.jl
 ```
 
-Tests del modelo estacionario (población constante / fijación):
+Tests del modelo estacionario (grafo dirigido / fijación):
 
 ```powershell
-julia --project=. test/test_stacional.jl
+julia --project=. test/test_grafo.jl
 ```
 
 El segundo imprime el progreso en vivo (bloques `1/7`, `2/7`, ...) con marcas de
@@ -121,26 +120,35 @@ Muestra, para un modelo de natalidad alta y otro de natalidad baja:
 - Una validación Monte Carlo que compara la frecuencia de extinción simulada
   contra la `q` teórica.
 
-## Ejecutar el modelo estacionario (población constante)
+## Ejecutar el modelo estacionario (grafo dirigido)
 
-Este modelo mantiene el tamaño de la población fijo y simula la deriva hacia la
-**fijación** de un único apellido. Teoría y detalle de parámetros en
+Este modelo mantiene el tamaño de la población fijo y lo representa como un
+**grafo dirigido**: cada vértice es un apellido con su conteo de personas, y
+cada arista dirigida `i → j` lleva la probabilidad de que una persona de
+apellido `i` se reproduzca con una de apellido `j`. Por defecto esas
+probabilidades son proporcionales a los conteos y las salientes de cada vértice
+suman 1. El proceso simula la deriva hacia la **fijación** de un único apellido.
+Teoría, fórmulas y API en
 [`docs/modelo-estacionario.md`](docs/modelo-estacionario.md).
 
 ```powershell
 julia --project=. scripts/run_stacional_model.jl
 ```
 
-Puedes cambiar los parámetros editando el bloque `PARÁMETROS DE LA SIMULACIÓN`
-del script, o mediante variables de entorno (tienen prioridad):
+Puedes configurar la ejecución con variables de entorno (tienen prioridad):
 
 ```bash
-POBLACION_INICIAL=20 APELLIDOS_INICIALES=6 SEMILLA=7 \
+SEMILLA=7 POBLACION_INICIAL="1,1,2,2,3,3" MAX_GENERACIONES=100 \
     julia --project=. scripts/run_stacional_model.jl
 ```
 
-Variables reconocidas: `POBLACION_INICIAL` (par), `APELLIDOS_INICIALES`,
-`TAMANO_PAREJA`, `MAX_GENERACIONES` y `SEMILLA` (`nothing` para azar).
+Variables reconocidas:
+
+- `POBLACION_INICIAL`: ids de apellido separados por comas (p.ej. `1,1,2,2,3,3`).
+  Por defecto `1,1,2,2,3,3,4,4`.
+- `MAX_GENERACIONES`: tope de generaciones de seguridad. Por defecto `100`.
+- `SEMILLA`: entero para reproducibilidad, o `nothing` para azar. Por defecto
+  aleatoria. Con la misma semilla, dos ejecuciones dan el mismo historial.
 
 ## Benchmark (opcional)
 
