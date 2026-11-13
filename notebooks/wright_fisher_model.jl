@@ -234,6 +234,190 @@ begin
 	Markdown.parse(join(lineas, "\n\n"))
 end
 
+# ╔═╡ 00000001-0001-0001-0001-000000000030
+md"""
+---
+
+## 🎮 Minijuego: El Torneo de Linajes de Colombia
+### Árbol Genealógico de Coalescencia (Censo DANE 2018)
+
+Aquí simulamos el árbol genealógico completo generación por generación, exactamente como en el diagrama clásico de **Wright-Fisher**:
+- **Cada fila horizontal** representa una generación sucesiva.
+- **Cada círculo** representa un individuo de la población ($N = 10$). El color indica su apellido.
+- **Las líneas negras** muestran la herencia directa: conectan a cada padre en la generación $t$ con sus hijos en la generación $t+1$.
+- Si un linaje no deja descendencia, su rama se corta (**extinción**).
+- Conforme pasan las generaciones, la deriva genética reduce la diversidad hasta que **un único apellido conquista toda la población** (**fijación**).
+
+Tomamos los **10 apellidos más frecuentes de Colombia** según el **Censo Nacional de Población y Vivienda (DANE 2018)**:
+*Rodríguez, Martínez, García, Gómez, López, Hernández, Pérez, Sánchez, González y Ramírez*.
+"""
+
+# ╔═╡ 00000001-0001-0001-0001-000000000031
+md"**Modo de juego:** $(@bind modo_torneo Select([\"equitativo\" => \"🏁 Torneo Equitativo (1 representante por apellido, 10% prob. inicial c/u)\", \"dane\" => \"🇨🇴 Proporcional Censo DANE 2018 (Rodríguez arranca con ventaja poblacional)\"], default=\"equitativo\"))"
+
+# ╔═╡ 00000001-0001-0001-0001-000000000032
+md"**Dinámica de reproducción:** $(@bind dinamica_torneo Select([\"wf_clasico\" => \"🎲 Wright-Fisher Estándar (cada hijo elige padre al azar)\", \"parejas\" => \"👥 Modelo de Parejas del Proyecto (competencia en parejas k=2, stacional-model.jl)\"], default=\"wf_clasico\"))"
+
+# ╔═╡ 00000001-0001-0001-0001-000000000033
+md"**Semilla de la partida (cámbiala para simular otra historia):** $(@bind semilla_torneo Slider(1:100, default=7, show_value=true))"
+
+# ╔═╡ 00000001-0001-0001-0001-000000000034
+md"**Límite de generaciones a mostrar:** $(@bind max_gen_torneo Slider(10:5:40, default=25, show_value=true))"
+
+# ╔═╡ 00000001-0001-0001-0001-000000000035
+begin
+	# ── Datos oficiales Censo DANE 2018 (Top 10 Colombia) ──
+	apellidos_colombia = [
+		"Rodríguez", "Martínez", "García", "Gómez", "López",
+		"Hernández", "Pérez", "Sánchez", "González", "Ramírez"
+	]
+	conteos_dane = [754991, 602593, 574856, 569534, 565394, 502626, 493764, 487112, 470505, 441179]
+	pesos_dane = conteos_dane ./ sum(conteos_dane)
+	
+	colores_torneo = [
+		"#1E88E5", # 1 Rodríguez (Azul)
+		"#8E24AA", # 2 Martínez (Púrpura)
+		"#FB8C00", # 3 García (Naranja)
+		"#212121", # 4 Gómez (Negro)
+		"#6D4C41", # 5 López (Marrón)
+		"#E53935", # 6 Hernández (Rojo)
+		"#43A047", # 7 Pérez (Verde)
+		"#00ACC1", # 8 Sánchez (Turquesa)
+		"#FDD835", # 9 González (Amarillo)
+		"#3949AB"  # 10 Ramírez (Índigo)
+	]
+	
+	N_torneo = 10
+	rng_t = MersenneTwister(semilla_torneo)
+	
+	# Población inicial de la partida
+	pob_init = if modo_torneo == "equitativo"
+		collect(1:10)
+	else
+		sample(rng_t, 1:10, Weights(pesos_dane), N_torneo)
+	end
+	
+	hist_genealogico = [copy(pob_init)]
+	xs_conns = Float64[]
+	ys_conns = Float64[]
+	caidos = Dict{Int, Int}()
+	
+	for g in 1:max_gen_torneo
+		padres = Vector{Int}(undef, N_torneo)
+		if dinamica_torneo == "wf_clasico"
+			padres = rand(rng_t, 1:N_torneo, N_torneo)
+		else
+			orden = shuffle(rng_t, 1:N_torneo)
+			for i in 1:2:N_torneo
+				ganador_pareja = orden[i]
+				padres[i] = ganador_pareja
+				padres[i+1] = ganador_pareja
+			end
+		end
+		
+		hijos = [hist_genealogico[g][p] for p in padres]
+		push!(hist_genealogico, hijos)
+		
+		# Trazar líneas padre -> hijo
+		for (hijo_idx, padre_idx) in enumerate(padres)
+			push!(xs_conns, padre_idx); push!(ys_conns, -(g - 1))
+			push!(xs_conns, hijo_idx);  push!(ys_conns, -g)
+			push!(xs_conns, NaN);       push!(ys_conns, NaN)
+		end
+		
+		# Registrar extinciones
+		sobrevivientes = unique(hijos)
+		for ap in unique(hist_genealogico[1])
+			if ap ∉ sobrevivientes && !haskey(caidos, ap)
+				caidos[ap] = g
+			end
+		end
+		
+		if length(sobrevivientes) == 1
+			break
+		end
+	end
+	
+	G_torneo = length(hist_genealogico) - 1
+	ganador_id = hist_genealogico[end][1]
+	hubo_fijacion = length(unique(hist_genealogico[end])) == 1
+	
+	# ── Dibujar la red genealógica ──
+	p_arbol = plot(
+		size = (800, max(460, 32 * (G_torneo + 1))),
+		legend = :outerright,
+		xlims = (0.3, N_torneo + 0.7),
+		ylims = (-G_torneo - 0.7, 0.7),
+		yticks = (-(0:G_torneo), ["Gen $g" for g in 0:G_torneo]),
+		xticks = (1:N_torneo, ["Indiv. $i" for i in 1:N_torneo]),
+		title = "Árbol Genealógico de Linajes (Wright-Fisher) — Colombia",
+		grid = false,
+		framestyle = :box
+	)
+	
+	# Líneas de parentesco
+	plot!(p_arbol, xs_conns, ys_conns, color = :black, alpha = 0.55, lw = 1.3, label = false)
+	
+	# Nodos agrupados por apellido
+	xs_por_ap = [Float64[] for _ in 1:10]
+	ys_por_ap = [Float64[] for _ in 1:10]
+	
+	for g in 0:G_torneo
+		for i in 1:N_torneo
+			ap = hist_genealogico[g + 1][i]
+			push!(xs_por_ap[ap], i)
+			push!(ys_por_ap[ap], -g)
+		end
+	end
+	
+	for ap in 1:10
+		if !isempty(xs_por_ap[ap])
+			scatter!(p_arbol, xs_por_ap[ap], ys_por_ap[ap],
+				color = colores_torneo[ap],
+				markersize = 10,
+				markerstrokecolor = :black,
+				markerstrokewidth = 1.1,
+				label = "$(apellidos_colombia[ap])"
+			)
+		end
+	end
+	
+	p_arbol
+end
+
+# ╔═╡ 00000001-0001-0001-0001-000000000036
+begin
+	ap_ganador_nom = apellidos_colombia[ganador_id]
+	color_ganador = colores_torneo[ganador_id]
+	
+	extinciones_ordenadas = sort(collect(caidos), by = x -> x[2])
+	filas_caidos = String[]
+	for (pos, (ap_id, gen_ext)) in enumerate(extinciones_ordenadas)
+		nom = apellidos_colombia[ap_id]
+		push!(filas_caidos, "$pos. **$nom** (extinto en Gen $gen_ext)")
+	end
+	resumen_caidos = isempty(filas_caidos) ? "*Ninguno se extinguió aún.*" : join(filas_caidos, "<br>")
+	
+	md"""
+	### 🏆 Resultados del Torneo
+	
+	| Categoría | Detalle |
+	|:--|:--|
+	| **Estado final** | $(hubo_fijacion ? "🎉 **¡FIJACIÓN ALCANZADA!**" : "⏳ No hubo fijación en $G_torneo generaciones") |
+	| **Apellido Conquistador** | <span style="color:$(color_ganador); font-size:1.2em; font-weight:bold;">⬤ $(ap_ganador_nom)</span> |
+	| **Generaciones hasta la victoria** | **$(G_torneo)** generaciones |
+	| **Dinámica utilizada** | $(dinamica_torneo == "wf_clasico" ? "Wright-Fisher estándar" : "Modelo de parejas (proyecto)") |
+	
+	<br>
+	
+	**💀 Cronología de Extinción:**<br>
+	$(resumen_caidos)
+	
+	> [!TIP]
+	> **¿Por qué ocurre esto?** En una población finita sin mutación, el azar del muestreo (deriva genética) hace que los linajes compitan entre sí. Tarde o temprano, un único ancestro común acapara toda la población y todos los demás linajes se extinguen. ¡Prueba cambiando la semilla para ver ganar a otro apellido!
+	"""
+end
+
 # ╔═╡ 00000001-0001-0001-0001-000000000016
 md"""
 ### 🎲 Múltiples Simulaciones: Distribución del Tiempo de Fijación
@@ -377,6 +561,13 @@ md"""
 # ╟─00000001-0001-0001-0001-000000000013
 # ╟─00000001-0001-0001-0001-000000000014
 # ╟─00000001-0001-0001-0001-000000000015
+# ╟─00000001-0001-0001-0001-000000000030
+# ╟─00000001-0001-0001-0001-000000000031
+# ╟─00000001-0001-0001-0001-000000000032
+# ╟─00000001-0001-0001-0001-000000000033
+# ╟─00000001-0001-0001-0001-000000000034
+# ╟─00000001-0001-0001-0001-000000000035
+# ╟─00000001-0001-0001-0001-000000000036
 # ╟─00000001-0001-0001-0001-000000000016
 # ╟─00000001-0001-0001-0001-000000000017
 # ╟─00000001-0001-0001-0001-000000000018
