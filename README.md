@@ -21,6 +21,7 @@ La teoría completa está en [`docs/justificacion-teorica.md`](docs/justificacio
 ```
 .
 ├── Project.toml              # Dependencias del proyecto (entorno aislado)
+├── Makefile                  # Atajos de ejecución (make help)
 ├── README.md
 ├── docs/
 │   ├── justificacion-teorica.md   # Modelo matemático y su mapeo al código
@@ -31,6 +32,7 @@ La teoría completa está en [`docs/justificacion-teorica.md`](docs/justificacio
 │   ├── graphModel.jl         # Motor del modelo estacionario como grafo dirigido
 │   └── stacional-model.jl    # Modelo estacionario (grafo dirigido, población constante)
 ├── scripts/
+│   ├── pluto.jl                  # Lanzador multiplataforma de los notebooks Pluto
 │   ├── run_simulation.jl         # Simulación inicial de demostración
 │   └── run_stacional_model.jl    # Ejecuta el modelo estacionario
 └── test/
@@ -48,6 +50,58 @@ Comprueba tu versión con:
 
 ```powershell
 julia --version
+```
+
+## Atajos con `make` (opcional pero recomendado)
+
+El proyecto incluye un `Makefile` que envuelve todos los comandos habituales.
+Ejecuta `make` (o `make help`) para ver la lista:
+
+```bash
+make help
+```
+
+Objetivos principales:
+
+| Comando            | Qué hace                                                  |
+| ------------------ | --------------------------------------------------------- |
+| `make instantiate` | Instala y precompila las dependencias (solo una vez)      |
+| `make pluto`       | Lanza el servidor Pluto (eliges el notebook en el navegador) |
+| `make bgw`         | Abre el notebook del modelo Bienaymé–Galton–Watson        |
+| `make wf`          | Abre el notebook del modelo Wright–Fisher                 |
+| `make simulation`  | Ejecuta la simulación de demostración                     |
+| `make stacional`   | Ejecuta el modelo estacionario (grafo dirigido)           |
+| `make test`        | Tests de los métodos numéricos                            |
+| `make test-markov` | Tests del modelo de Markov / simulación                   |
+| `make test-grafo`  | Tests del modelo estacionario                             |
+| `make bench`       | Benchmark de los métodos numéricos                        |
+
+El `Makefile` usa el `julia` de tu `PATH`. Si lo tienes instalado en otra ruta
+o con otro nombre, pásalo como variable: `make pluto JULIA=/ruta/a/julia`.
+
+> **Windows:** `make` no viene preinstalado. Si no lo tienes, usa directamente
+> los comandos `julia` equivalentes (cada fila de arriba corresponde al comando
+> `julia --project=. ...` documentado en las secciones siguientes). Los antiguos
+> archivos `.bat` se eliminaron porque ataban la ruta de Julia a una versión
+> concreta; el lanzador `scripts/pluto.jl` los reemplaza de forma portable.
+
+## Notebooks de Pluto
+
+Los notebooks interactivos viven en `notebooks/` y se abren con Pluto. El
+lanzador `scripts/pluto.jl` es multiplataforma: usa el `julia` activo (sin rutas
+fijas) e instancia el entorno automáticamente la primera vez.
+
+Servidor Pluto general (eliges el notebook desde el navegador):
+
+```bash
+julia --project=. scripts/pluto.jl        # o: make pluto
+```
+
+Abrir directamente un notebook concreto:
+
+```bash
+julia --project=. scripts/pluto.jl bgw    # Bienaymé–Galton–Watson  (make bgw)
+julia --project=. scripts/pluto.jl wf     # Wright–Fisher           (make wf)
 ```
 
 ## Inicializar el proyecto
