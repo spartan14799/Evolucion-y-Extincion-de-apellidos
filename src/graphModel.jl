@@ -85,3 +85,37 @@ Devuelve el diccionario de probabilidades salientes para el vértice `i`.
 function probabilidades_salientes(grafo::GrafoApellidos, i::Int)
     return get(grafo.probabilidades, i, Dict{Int,Float64}())
 end
+
+"""
+    GrafoApellidos(poblacion; compatibles=nothing, probabilidades=nothing)
+
+Constructor que inicializa los vértices y conteos. 
+- Si no se provee `compatibles`, se asume un grafo completo.
+- Si no se provee `probabilidades`, se calculan las proporcionales por defecto.
+"""
+function GrafoApellidos(poblacion::Vector{Int}; compatibles=nothing, probabilidades=nothing)
+    conteos = contar_apellidos(poblacion)
+    apellidos = sort(collect(keys(conteos)))
+
+    comp = Dict{Int,Vector{Int}}()
+    if compatibles === nothing
+        # Por defecto: grafo completo
+        for i in apellidos
+            comp[i] = copy(apellidos)
+        end
+    else
+        comp = compatibles
+    end
+
+    # Inicialmente vacío
+    grafo = GrafoApellidos(apellidos, conteos, comp, Dict{Int,Dict{Int,Float64}}())
+    
+    # Asignación de probabilidades (default o custom)
+    if probabilidades === nothing
+        grafo.probabilidades = probabilidades_proporcionales(grafo)
+    else
+        grafo.probabilidades = probabilidades
+    end
+
+    return grafo
+end
