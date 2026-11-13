@@ -24,7 +24,8 @@ begin
 
 	# ── Cargamos los módulos del proyecto tal cual están en src/ ──
 	include(joinpath(@__DIR__, "..", "src", "stacional-model.jl"))
-	# Esto nos da: ParametrosModelo, siguiente_generacion, simular_fijacion
+	# Esto nos da: GrafoApellidos, siguiente_generacion_grafo, ParametrosModelo, simular_fijacion
+	# (stacional-model.jl incluye internamente graphModel.jl)
 end
 
 # ╔═╡ 00000001-0001-0001-0001-000000000002
@@ -38,11 +39,14 @@ md"""
 
 El **modelo de Wright-Fisher** (originalmente diseñado para genética de poblaciones) modela cómo evoluciona la frecuencia de variantes en una **población de tamaño fijo**. En nuestro caso, los "alelos" son **apellidos**.
 
-La idea central es (tal como la implementa [`src/stacional-model.jl`](../src/stacional-model.jl)):
+La idea central es (tal como la implementa [`src/stacional-model.jl`](../src/stacional-model.jl) con [`src/graphModel.jl`](../src/graphModel.jl)):
 
-> En cada generación, los `N` individuos se **mezclan al azar** (`shuffle`) y se agrupan en parejas de tamaño `k` (por defecto `k = 2`). De cada pareja sobrevive **un único apellido** (el del primer miembro tras la mezcla), que se propaga a todos los miembros del grupo. El tamaño de la población **nunca cambia**, pero la diversidad de apellidos **sólo puede disminuir**.
+> En cada generación, se construye un **grafo dirigido de compatibilidad** entre apellidos (`GrafoApellidos`). Para producir los `N` hijos de la siguiente generación:
+> 1. Se elige un apellido **origen** `i` ponderado por su frecuencia en la población actual.
+> 2. Se elige una **pareja** `j` según la distribución de probabilidad saliente `P(i → j)` del grafo.
+> 3. El hijo hereda el apellido de `i` con probabilidad `p_herencia`, o el de `j` con probabilidad `1 - p_herencia`.
 
-Esto es lo que hace la función `siguiente_generacion()` del proyecto.
+Esto es lo que hace la función `siguiente_generacion_grafo()` de `graphModel.jl`.
 
 El proceso avanza hacia la **fijación** de un solo apellido (estado absorbente), análogo a la **deriva genética**.
 
@@ -54,27 +58,30 @@ El proceso avanza hacia la **fijación** de un solo apellido (estado absorbente)
 md"""
 ### ⛓️ La Cadena de Markov
 
-El estado del sistema en cada generación es el **vector de apellidos** de todos los individuos. Como la transición sólo depende del estado actual (mezcla aleatoria + selección de apellido ganador por pareja), el proceso es una **cadena de Markov**.
+El estado del sistema en cada generación es el **vector de apellidos** de todos los individuos. Como la transición sólo depende del estado actual (muestreo ponderado + herencia estocástica), el proceso es una **cadena de Markov**.
 
-**Propiedades clave de `simular_fijacion()`:**
+**Propiedades clave de `simular_fijacion()` (stacional-model.jl):**
 - **Espacio de estados**: Todas las posibles asignaciones de apellidos a `N` individuos
-- **Transiciones**: `siguiente_generacion()` → shuffle → agrupar en parejas → propagar ganador
+- **Transiciones**: `siguiente_generacion_grafo()` → construir grafo → muestrear origen → elegir pareja → heredar apellido
 - **Estado absorbente**: Un único apellido en toda la población (`length(unique(poblacion)) == 1`)
 - **Irreversibilidad**: La diversidad **nunca aumenta** → la fijación es **inevitable**
 - **Invariante**: El tamaño de la población se conserva en cada paso (`N` constante)
 
 La pregunta no es **si** un apellido domina, sino **cuándo** y **cuál**.
+
+**Novedad — Modelo de Grafos:**
+El grafo de compatibilidad (`GrafoApellidos`) permite definir qué apellidos pueden interactuar entre sí. En un **grafo completo** (por defecto), todos compiten con todos. Pero podemos definir redes **restringidas** (tipo "mundo pequeño") donde cada apellido solo interactúa con ciertos vecinos, ¡cambiando drásticamente la dinámica de fijación!
 """
 
 # ╔═╡ 00000001-0001-0001-0001-000000000004
 md"""
 ### 🎛️ Panel de Control
 
-Ajusta los parámetros de la simulación (los mismos que usa `scripts/run_stacional_model.jl`):
+Ajusta los parámetros de la simulación:
 """
 
 # ╔═╡ 00000001-0001-0001-0001-000000000005
-md"**Población total** (N, debe ser par): $(@bind N_slider Slider(4:2:60, default=10, show_value=true))"
+md"**Población total** (N): $(@bind N_slider Slider(4:2:60, default=10, show_value=true))"
 
 # ╔═╡ 00000001-0001-0001-0001-000000000006
 md"**Número de apellidos iniciales**: $(@bind num_apellidos_slider Slider(2:1:20, default=4, show_value=true))"
@@ -83,20 +90,21 @@ md"**Número de apellidos iniciales**: $(@bind num_apellidos_slider Slider(2:1:2
 md"**Semilla aleatoria** (para reproducibilidad): $(@bind semilla_slider Slider(1:100, default=42, show_value=true))"
 
 # ╔═╡ 00000001-0001-0001-0001-000000000008
-md"**Máximo de generaciones**: $(@bind max_gen_slider Slider(100:100:10000, default=5000, show_value=true))"
+md"**Máximo de generaciones**: $(@bind max_gen_slider Slider(100:100:5000, default=1000, show_value=true))"
+
+# ╔═╡ 00000001-0001-0001-0001-000000000040
+md"**Probabilidad de herencia** (`p_herencia` — prob. de heredar el apellido del origen): $(@bind p_herencia_slider Slider(0.0:0.05:1.0, default=0.5, show_value=true))"
 
 # ╔═╡ 00000001-0001-0001-0001-000000000009
 begin
-	# Ajustar apellidos al máximo posible (misma validación que el script)
+	# Ajustar apellidos al máximo posible
 	num_apellidos = min(num_apellidos_slider, N_slider)
 	
 	rng_sim = MersenneTwister(semilla_slider)
 
 	# ── Construimos la población inicial ──
-	# Esta lógica replica `configurar_poblacion()` de scripts/run_stacional_model.jl:
-	# 1. Aseguramos que cada apellido (1:num_apellidos) aparezca al menos una vez
-	# 2. El resto se rellena al azar
-	# 3. Se mezcla
+	# Aseguramos que cada apellido (1:num_apellidos) aparezca al menos una vez
+	# El resto se rellena al azar y se mezcla
 	estado_inicial = begin
 		pob = collect(1:num_apellidos)
 		faltantes = N_slider - num_apellidos
@@ -107,7 +115,10 @@ begin
 	end
 	
 	# ── Usamos ParametrosModelo y simular_fijacion del proyecto ──
-	parametros = ParametrosModelo(tamano_pareja = 2, max_generaciones = max_gen_slider)
+	parametros = ParametrosModelo(
+		max_generaciones = max_gen_slider,
+		p_herencia = p_herencia_slider
+	)
 	resultado = simular_fijacion(estado_inicial; parametros=parametros, rng=rng_sim)
 	
 	md"""
@@ -117,6 +128,7 @@ begin
 	|:--|:--|
 	| Población (N) | **$(N_slider)** |
 	| Apellidos iniciales | **$(num_apellidos)** |
+	| p\_herencia | **$(p_herencia_slider)** |
 	| Semilla | **$(semilla_slider)** |
 	| ¿Hubo fijación? | **$(resultado.fijacion ? "✅ SÍ" : "❌ NO (límite alcanzado)")** |
 	| Generaciones transcurridas | **$(resultado.generaciones)** |
@@ -181,7 +193,7 @@ end
 md"""
 ### 📊 Gráfica de Áreas Apiladas
 
-El área total siempre es 1 (100% de la población se conserva — invariante de `siguiente_generacion()`).
+El área total siempre es 1 (100% de la población se conserva — invariante de `siguiente_generacion_grafo()`).
 """
 
 # ╔═╡ 00000001-0001-0001-0001-000000000013
@@ -201,7 +213,7 @@ end
 md"""
 ### 🔬 Estado Generación por Generación
 
-Detalle de las primeras y últimas generaciones (mismo formato que `scripts/run_stacional_model.jl`):
+Detalle de las primeras y últimas generaciones:
 """
 
 # ╔═╡ 00000001-0001-0001-0001-000000000015
@@ -234,6 +246,257 @@ begin
 	Markdown.parse(join(lineas, "\n\n"))
 end
 
+# ╔═╡ 00000001-0001-0001-0001-000000000041
+md"""
+---
+
+## 🕸️ Visualización del Grafo de Compatibilidad
+
+El modelo de grafos (`GrafoApellidos`) define **qué apellidos pueden interactuar entre sí**. Por defecto es un **grafo completo** (todos con todos), pero podemos restringirlo para simular redes de **mundo pequeño**.
+
+Veamos cómo se ve el grafo y la matriz de probabilidades de transición para la población actual:
+"""
+
+# ╔═╡ 00000001-0001-0001-0001-000000000042
+md"**Tipo de grafo:** $(@bind tipo_grafo Select([\"completo\" => \"🔗 Grafo Completo (todos interactúan con todos)\", \"anillo\" => \"⭕ Anillo (cada apellido solo con vecinos ±1)\", \"mundo_pequeno\" => \"🌐 Mundo Pequeño (anillo + atajos aleatorios)\"], default=\"completo\"))"
+
+# ╔═╡ 00000001-0001-0001-0001-000000000043
+begin
+	# Construir la compatibilidad según el tipo de grafo seleccionado
+	apellidos_en_pob = sort(unique(estado_inicial))
+	n_apellidos_pob = length(apellidos_en_pob)
+	
+	function construir_compatibles(aps, tipo, rng_grafo)
+		comp = Dict{Int,Vector{Int}}()
+		n = length(aps)
+		if tipo == "completo"
+			for a in aps
+				comp[a] = copy(aps)
+			end
+		elseif tipo == "anillo"
+			for (idx, a) in enumerate(aps)
+				vecino_izq = aps[mod1(idx - 1, n)]
+				vecino_der = aps[mod1(idx + 1, n)]
+				comp[a] = sort(unique([a, vecino_izq, vecino_der]))
+			end
+		elseif tipo == "mundo_pequeno"
+			# Anillo base + atajos aleatorios (prob 0.3 de añadir cada no-vecino)
+			for (idx, a) in enumerate(aps)
+				vecino_izq = aps[mod1(idx - 1, n)]
+				vecino_der = aps[mod1(idx + 1, n)]
+				vecinos = Set([a, vecino_izq, vecino_der])
+				for other in aps
+					if other ∉ vecinos && rand(rng_grafo) < 0.3
+						push!(vecinos, other)
+					end
+				end
+				comp[a] = sort(collect(vecinos))
+			end
+		end
+		return comp
+	end
+	
+	rng_grafo_vis = MersenneTwister(semilla_slider + 999)
+	compatibles_custom = construir_compatibles(apellidos_en_pob, tipo_grafo, rng_grafo_vis)
+	
+	# Construir el grafo para visualización
+	grafo_vis = GrafoApellidos(estado_inicial; compatibles=compatibles_custom)
+	
+	# ── Visualizar la MATRIZ de probabilidades ──
+	n_a = length(grafo_vis.apellidos)
+	mat_probs = zeros(n_a, n_a)
+	for (i_idx, i) in enumerate(grafo_vis.apellidos)
+		probs_i = get(grafo_vis.probabilidades, i, Dict{Int,Float64}())
+		for (j_idx, j) in enumerate(grafo_vis.apellidos)
+			mat_probs[i_idx, j_idx] = get(probs_i, j, 0.0)
+		end
+	end
+	
+	etiquetas_aps = ["Ap. $a" for a in grafo_vis.apellidos]
+	
+	p_mat = heatmap(
+		etiquetas_aps, etiquetas_aps, mat_probs,
+		title = "Matriz de Transición P(i → j) — Grafo $(tipo_grafo)",
+		xlabel = "Apellido destino (j)", ylabel = "Apellido origen (i)",
+		color = :YlOrRd, clims = (0, maximum(mat_probs) + 0.01),
+		size = (600, 500), aspect_ratio = :equal
+	)
+	
+	# Anotar valores en cada celda
+	for i_idx in 1:n_a
+		for j_idx in 1:n_a
+			val = mat_probs[i_idx, j_idx]
+			if val > 0.001
+				annotate!(p_mat, j_idx, i_idx, 
+					text("$(round(val, digits=2))", 8, :center, val > 0.3 ? :white : :black))
+			end
+		end
+	end
+	
+	p_mat
+end
+
+# ╔═╡ 00000001-0001-0001-0001-000000000044
+begin
+	# ── Visualizar el grafo como red de nodos ──
+	n_nodos = length(grafo_vis.apellidos)
+	angulos = range(0, 2π, length=n_nodos + 1)[1:end-1]
+	radio = 3.0
+	xs_nodos = radio .* cos.(angulos)
+	ys_nodos = radio .* sin.(angulos)
+	
+	p_red = plot(
+		size = (600, 600),
+		title = "Red de Compatibilidad — Grafo $(tipo_grafo)",
+		legend = false,
+		aspect_ratio = :equal,
+		xlims = (-5, 5), ylims = (-5, 5),
+		grid = false, framestyle = :none
+	)
+	
+	# Dibujar aristas (conexiones de compatibilidad)
+	for (i_idx, i) in enumerate(grafo_vis.apellidos)
+		for j in get(grafo_vis.compatibles, i, Int[])
+			j_idx = findfirst(==(j), grafo_vis.apellidos)
+			if j_idx !== nothing && j != i
+				prob_ij = get(get(grafo_vis.probabilidades, i, Dict{Int,Float64}()), j, 0.0)
+				plot!(p_red, 
+					[xs_nodos[i_idx], xs_nodos[j_idx]],
+					[ys_nodos[i_idx], ys_nodos[j_idx]],
+					color = :gray, alpha = 0.3 + 0.7 * prob_ij,
+					linewidth = 1 + 3 * prob_ij)
+			end
+		end
+	end
+	
+	# Dibujar nodos
+	node_colors = palette(:tab10, n_nodos)
+	conteo_pob = countmap(estado_inicial)
+	for (i_idx, ap) in enumerate(grafo_vis.apellidos)
+		cnt = get(conteo_pob, ap, 0)
+		scatter!(p_red, [xs_nodos[i_idx]], [ys_nodos[i_idx]],
+			color = node_colors[i_idx],
+			markersize = 12 + 3 * cnt,
+			markerstrokecolor = :black,
+			markerstrokewidth = 2)
+		annotate!(p_red, xs_nodos[i_idx], ys_nodos[i_idx] + 0.7,
+			text("Ap. $ap\n(n=$cnt)", 8, :center))
+	end
+	
+	p_red
+end
+
+# ╔═╡ 00000001-0001-0001-0001-000000000045
+md"""
+> **Lectura de las visualizaciones:**
+> - El **heatmap** muestra la probabilidad de que un individuo con apellido $i$ (fila) elija como pareja a alguien con apellido $j$ (columna). En un grafo completo, las probabilidades son proporcionales a la frecuencia poblacional. En grafos restringidos, las celdas con 0 indican que esos apellidos **no pueden interactuar**.
+> - La **red** muestra los nodos (apellidos) y aristas (compatibilidades). El grosor de las aristas refleja la probabilidad de transición. El tamaño de cada nodo refleja su población.
+"""
+
+# ╔═╡ 00000001-0001-0001-0001-000000000046
+md"""
+---
+
+### 🔄 Simulación con Grafo Personalizado
+
+Ahora corremos `simular_fijacion()` usando el grafo seleccionado arriba para ver cómo la topología de la red afecta la dinámica de fijación:
+"""
+
+# ╔═╡ 00000001-0001-0001-0001-000000000047
+begin
+	rng_grafo_sim = MersenneTwister(semilla_slider)
+	
+	# Reconstruir población inicial con la misma semilla
+	estado_grafo = begin
+		pob_g = collect(1:num_apellidos)
+		falt_g = N_slider - num_apellidos
+		if falt_g > 0
+			append!(pob_g, rand(rng_grafo_sim, 1:num_apellidos, falt_g))
+		end
+		shuffle(rng_grafo_sim, pob_g)
+	end
+	
+	# Construir compatibles para el grafo
+	rng_gc = MersenneTwister(semilla_slider + 999)
+	compat_sim = construir_compatibles(sort(unique(estado_grafo)), tipo_grafo, rng_gc)
+	
+	# Función para calcular probabilidades custom a partir de compatibles
+	function prob_custom_fn(poblacion)
+		g = GrafoApellidos(poblacion; compatibles=compat_sim)
+		return g.probabilidades
+	end
+	
+	# Configurar parámetros con probabilidades custom si no es grafo completo
+	params_grafo = if tipo_grafo == "completo"
+		ParametrosModelo(max_generaciones=max_gen_slider, p_herencia=p_herencia_slider)
+	else
+		ParametrosModelo(
+			max_generaciones=max_gen_slider, 
+			p_herencia=p_herencia_slider,
+			fijar_probabilidades=prob_custom_fn
+		)
+	end
+	
+	rng_sim_grafo = MersenneTwister(semilla_slider + 500)
+	resultado_grafo = simular_fijacion(estado_grafo; parametros=params_grafo, rng=rng_sim_grafo)
+	
+	# Calcular frecuencias
+	hist_g = resultado_grafo.historial
+	n_gens_g = length(hist_g)
+	aps_g = sort(unique(estado_grafo))
+	n_ap_g = length(aps_g)
+	
+	freqs_g = zeros(n_gens_g, n_ap_g)
+	for (gen, est) in enumerate(hist_g)
+		cnt = countmap(est)
+		for (j, ap) in enumerate(aps_g)
+			freqs_g[gen, j] = get(cnt, ap, 0) / length(est)
+		end
+	end
+	
+	p_grafo_freq = plot(
+		size = (800, 450),
+		xlabel = "Generación", ylabel = "Frecuencia relativa",
+		title = "Evolución con Grafo $(tipo_grafo) (p_herencia=$(p_herencia_slider))",
+		legend = :outerright,
+		ylims = (0, 1.05),
+		grid = true, gridstyle = :dash, gridalpha = 0.3
+	)
+	
+	colores_g = palette(:tab10, n_ap_g)
+	for (j, ap) in enumerate(aps_g)
+		plot!(p_grafo_freq, 0:(n_gens_g-1), freqs_g[:, j],
+			label = "Apellido $ap", linewidth = 2.5,
+			color = colores_g[j], alpha = 0.85)
+	end
+	
+	if resultado_grafo.fijacion
+		vline!(p_grafo_freq, [resultado_grafo.generaciones],
+			label = "Fijación (gen $(resultado_grafo.generaciones))",
+			color = :red, linestyle = :dash, linewidth = 1.5)
+	end
+	
+	p_grafo_freq
+end
+
+# ╔═╡ 00000001-0001-0001-0001-000000000048
+begin
+	md"""
+	**Resultado con grafo $(tipo_grafo):**
+	
+	| Parámetro | Valor |
+	|:--|:--|
+	| ¿Hubo fijación? | **$(resultado_grafo.fijacion ? "✅ SÍ" : "❌ NO")** |
+	| Generaciones | **$(resultado_grafo.generaciones)** |
+	| Ganador | **$(resultado_grafo.fijacion ? "Apellido $(resultado_grafo.ganador)" : "Ninguno aún")** |
+	| Topología | **$(tipo_grafo)** |
+	| p\_herencia | **$(p_herencia_slider)** |
+	
+	> [!TIP]
+	> Prueba cambiar entre **grafo completo**, **anillo** y **mundo pequeño** para ver cómo la estructura de la red afecta el tiempo y resultado de la fijación. En grafos restringidos, los apellidos que no están conectados **no pueden competir directamente**, lo que puede retrasar o alterar la fijación.
+	"""
+end
+
 # ╔═╡ 00000001-0001-0001-0001-000000000030
 md"""
 ---
@@ -241,7 +504,7 @@ md"""
 ## 🎮 Minijuego: El Torneo de Linajes de Colombia
 ### Árbol Genealógico de Coalescencia (Censo DANE 2018)
 
-Aquí simulamos el árbol genealógico completo generación por generación, exactamente como en el diagrama clásico de **Wright-Fisher**:
+Aquí simulamos el árbol genealógico completo generación por generación, usando el motor `siguiente_generacion_grafo()` del proyecto:
 - **Cada fila horizontal** representa una generación sucesiva.
 - **Cada círculo** representa un individuo de la población ($N = 10$). El color indica su apellido.
 - **Las líneas negras** muestran la herencia directa: conectan a cada padre en la generación $t$ con sus hijos en la generación $t+1$.
@@ -255,8 +518,8 @@ Tomamos los **10 apellidos más frecuentes de Colombia** según el **Censo Nacio
 # ╔═╡ 00000001-0001-0001-0001-000000000031
 md"**Modo de juego:** $(@bind modo_torneo Select([\"equitativo\" => \"🏁 Torneo Equitativo (1 representante por apellido, 10% prob. inicial c/u)\", \"dane\" => \"🇨🇴 Proporcional Censo DANE 2018 (Rodríguez arranca con ventaja poblacional)\"], default=\"equitativo\"))"
 
-# ╔═╡ 00000001-0001-0001-0001-000000000032
-md"**Dinámica de reproducción:** $(@bind dinamica_torneo Select([\"wf_clasico\" => \"🎲 Wright-Fisher Estándar (cada hijo elige padre al azar)\", \"parejas\" => \"👥 Modelo de Parejas del Proyecto (competencia en parejas k=2, stacional-model.jl)\"], default=\"wf_clasico\"))"
+# ╔═╡ 00000001-0001-0001-0001-000000000049
+md"**p\_herencia en el torneo** (0.5 = aleatorio, 1.0 = siempre hereda del origen): $(@bind p_her_torneo Slider(0.0:0.1:1.0, default=0.5, show_value=true))"
 
 # ╔═╡ 00000001-0001-0001-0001-000000000033
 md"**Semilla de la partida (cámbiala para simular otra historia):** $(@bind semilla_torneo Slider(1:100, default=7, show_value=true))"
@@ -297,29 +560,27 @@ begin
 		sample(rng_t, 1:10, Weights(pesos_dane), N_torneo)
 	end
 	
+	# ── Simular usando siguiente_generacion_grafo() del proyecto ──
 	hist_genealogico = [copy(pob_init)]
 	xs_conns = Float64[]
 	ys_conns = Float64[]
 	caidos = Dict{Int, Int}()
 	
 	for g in 1:max_gen_torneo
-		padres = Vector{Int}(undef, N_torneo)
-		if dinamica_torneo == "wf_clasico"
-			padres = rand(rng_t, 1:N_torneo, N_torneo)
-		else
-			orden = shuffle(rng_t, 1:N_torneo)
-			for i in 1:2:N_torneo
-				ganador_pareja = orden[i]
-				padres[i] = ganador_pareja
-				padres[i+1] = ganador_pareja
-			end
-		end
+		pob_actual = hist_genealogico[g]
 		
-		hijos = [hist_genealogico[g][p] for p in padres]
+		# Usamos siguiente_generacion_grafo() con p_herencia del slider
+		hijos = siguiente_generacion_grafo(pob_actual, rng_t; p_herencia=p_her_torneo)
 		push!(hist_genealogico, hijos)
 		
-		# Trazar líneas padre -> hijo
-		for (hijo_idx, padre_idx) in enumerate(padres)
+		# Para las líneas de parentesco, necesitamos una correspondencia visual.
+		# siguiente_generacion_grafo produce N hijos, cada uno muestreado de la 
+		# distribución completa. Dibujamos la conexión más probable (apellido del padre).
+		for hijo_idx in 1:N_torneo
+			ap_hijo = hijos[hijo_idx]
+			# Buscar un padre con el mismo apellido para la conexión visual
+			padres_posibles = findall(x -> x == ap_hijo, pob_actual)
+			padre_idx = isempty(padres_posibles) ? rand(rng_t, 1:N_torneo) : rand(rng_t, padres_posibles)
 			push!(xs_conns, padre_idx); push!(ys_conns, -(g - 1))
 			push!(xs_conns, hijo_idx);  push!(ys_conns, -g)
 			push!(xs_conns, NaN);       push!(ys_conns, NaN)
@@ -406,7 +667,7 @@ begin
 	| **Estado final** | $(hubo_fijacion ? "🎉 **¡FIJACIÓN ALCANZADA!**" : "⏳ No hubo fijación en $G_torneo generaciones") |
 	| **Apellido Conquistador** | <span style="color:$(color_ganador); font-size:1.2em; font-weight:bold;">⬤ $(ap_ganador_nom)</span> |
 	| **Generaciones hasta la victoria** | **$(G_torneo)** generaciones |
-	| **Dinámica utilizada** | $(dinamica_torneo == "wf_clasico" ? "Wright-Fisher estándar" : "Modelo de parejas (proyecto)") |
+	| **p\_herencia utilizado** | **$(p_her_torneo)** |
 	
 	<br>
 	
@@ -414,7 +675,7 @@ begin
 	$(resumen_caidos)
 	
 	> [!TIP]
-	> **¿Por qué ocurre esto?** En una población finita sin mutación, el azar del muestreo (deriva genética) hace que los linajes compitan entre sí. Tarde o temprano, un único ancestro común acapara toda la población y todos los demás linajes se extinguen. ¡Prueba cambiando la semilla para ver ganar a otro apellido!
+	> **¿Por qué ocurre esto?** En una población finita sin mutación, el azar del muestreo (deriva genética) hace que los linajes compitan entre sí. Tarde o temprano, un único ancestro común acapara toda la población y todos los demás linajes se extinguen. ¡Prueba cambiando la semilla o el `p_herencia` para ver ganar a otro apellido!
 	"""
 end
 
@@ -535,7 +796,9 @@ end
 md"""
 ### 📝 Resumen
 
-- El modelo usa las funciones de `src/stacional-model.jl`: `ParametrosModelo`, `siguiente_generacion()` y `simular_fijacion()`
+- El modelo usa las funciones de `src/stacional-model.jl` y `src/graphModel.jl`: `GrafoApellidos`, `siguiente_generacion_grafo()`, `ParametrosModelo` y `simular_fijacion()`
+- La **topología del grafo de compatibilidad** define qué apellidos pueden interactuar: grafo completo (clásico), anillo (vecinos inmediatos), o mundo pequeño (anillo + atajos)
+- El parámetro `p_herencia` controla la probabilidad de que el hijo herede el apellido del origen vs. el de la pareja
 - La fijación es **inevitable** en poblaciones finitas: la diversidad sólo disminuye
 - Poblaciones **más grandes** → más generaciones hasta fijación
 - La **probabilidad de ganar** de cada apellido es proporcional a su **frecuencia inicial**
@@ -554,6 +817,7 @@ md"""
 # ╟─00000001-0001-0001-0001-000000000006
 # ╟─00000001-0001-0001-0001-000000000007
 # ╟─00000001-0001-0001-0001-000000000008
+# ╟─00000001-0001-0001-0001-000000000040
 # ╟─00000001-0001-0001-0001-000000000009
 # ╟─00000001-0001-0001-0001-000000000010
 # ╟─00000001-0001-0001-0001-000000000011
@@ -561,9 +825,17 @@ md"""
 # ╟─00000001-0001-0001-0001-000000000013
 # ╟─00000001-0001-0001-0001-000000000014
 # ╟─00000001-0001-0001-0001-000000000015
+# ╟─00000001-0001-0001-0001-000000000041
+# ╟─00000001-0001-0001-0001-000000000042
+# ╟─00000001-0001-0001-0001-000000000043
+# ╟─00000001-0001-0001-0001-000000000044
+# ╟─00000001-0001-0001-0001-000000000045
+# ╟─00000001-0001-0001-0001-000000000046
+# ╟─00000001-0001-0001-0001-000000000047
+# ╟─00000001-0001-0001-0001-000000000048
 # ╟─00000001-0001-0001-0001-000000000030
 # ╟─00000001-0001-0001-0001-000000000031
-# ╟─00000001-0001-0001-0001-000000000032
+# ╟─00000001-0001-0001-0001-000000000049
 # ╟─00000001-0001-0001-0001-000000000033
 # ╟─00000001-0001-0001-0001-000000000034
 # ╟─00000001-0001-0001-0001-000000000035
