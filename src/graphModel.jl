@@ -124,36 +124,58 @@ function validar_grafo(grafo::GrafoApellidos)
 end
 
 """
-    siguiente_generacion_grafo(poblacion::Vector{Int}, rng::AbstractRNG=Random.default_rng(); probabilidades_custom=nothing)
+    siguiente_generacion_grafo(poblacion, rng=Random.default_rng(); probabilidades_custom=nothing, p_herencia=0.5)
 
-Construye el grafo para la generación actual, lo valida, y computa la siguiente 
+Construye el grafo para la generación actual, lo valida, y computa la siguiente
 generación estocásticamente, manteniendo el tamaño poblacional N constante.
+
+Para cada hijo:
+1. Se elige un apellido **origen** `i` al azar, ponderado por su frecuencia
+   (quién inicia el emparejamiento).
+2. Se sortea la **pareja** `j` según la distribución saliente `P(i -> j)`.
+3. El hijo **hereda** el apellido del origen `i` con probabilidad `p_herencia`,
+   o el de la pareja `j` con probabilidad `1 - p_herencia`.
+
+El default `p_herencia = 0.5` representa que el origen es hombre o mujer con
+igual probabilidad y que el apellido lo transmite el hombre: la mitad de las
+veces el hijo hereda el apellido del origen y la otra mitad el de la pareja.
+Ajustar `p_herencia` permite sesgar la transmisión hacia el origen (`> 0.5`) o
+hacia la pareja (`< 0.5`) para experimentar.
 """
-function siguiente_generacion_grafo(poblacion::Vector{Int}, rng::AbstractRNG=Random.default_rng(); probabilidades_custom=nothing)
+function siguiente_generacion_grafo(poblacion::Vector{Int}, rng::AbstractRNG=Random.default_rng();
+                                    probabilidades_custom=nothing, p_herencia::Float64=0.5)
     N = length(poblacion)
     if N == 0
         return Int[]
     end
-    
+    if !(0.0 <= p_herencia <= 1.0)
+        error("p_herencia debe estar en [0, 1] (recibido $p_herencia).")
+    end
+
     # Construir grafo y  Validar
     grafo = GrafoApellidos(poblacion; probabilidades=probabilidades_custom)
     validar_grafo(grafo)
-    
+
     # Reconstruir N personas
     nueva_poblacion = Vector{Int}(undef, N)
-    
+
     # Preparar el muestreo del 'origen' ponderado por la cantidad de personas (quién inicia)
     apellidos_activos = grafo.apellidos
     pesos_origen = Weights([grafo.conteos[i] for i in apellidos_activos])
-    
+
     for k in 1:N
-        # Elegir el apellido origen i al azar, ponderado por su frecuencia
-        # (quién inicia el emparejamiento). El hijo hereda el apellido del
-        # origen i, por lo que P(i -> j) interviene a través de esta elección
-        # ponderada del origen.
+        # 1. Elegir el apellido origen i al azar, ponderado por su frecuencia.
         i = sample(rng, apellidos_activos, pesos_origen)
-        nueva_poblacion[k] = i
+
+        # 2. Sortear la pareja j según la distribución saliente P(i -> j).
+        probs_i = probabilidades_salientes(grafo, i)
+        destinos = collect(keys(probs_i))
+        pesos_destinos = Weights(collect(values(probs_i)))
+        j = sample(rng, destinos, pesos_destinos)
+
+        # 3. El hijo hereda i con probabilidad p_herencia, o j con 1 - p_herencia.
+        nueva_poblacion[k] = rand(rng) < p_herencia ? i : j
     end
-    
+
     return nueva_poblacion
 end

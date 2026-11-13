@@ -208,6 +208,43 @@ println("-------------------\n")
     end
 end
 
+@testset "Herencia por pareja (Task 7)" begin
+    paso("9/10 p_herencia: el destino j influye en la herencia ...")
+    @testset "p_herencia extremos con grafo custom asimétrico" begin
+        # Grafo donde el apellido 1 SIEMPRE se empareja con el 2 y viceversa.
+        pob = [1, 2]
+        probs = Dict(
+            1 => Dict(1 => 0.0, 2 => 1.0),   # origen 1 => pareja j siempre es 2
+            2 => Dict(1 => 1.0, 2 => 0.0),   # origen 2 => pareja j siempre es 1
+        )
+
+        # p_herencia = 1.0: el hijo SIEMPRE hereda el origen i.
+        rng = MersenneTwister(7)
+        hijos_origen = siguiente_generacion_grafo(pob, rng;
+                            probabilidades_custom=probs, p_herencia=1.0)
+        @test issubset(unique(hijos_origen), Set([1, 2]))
+
+        # p_herencia = 0.0: el hijo SIEMPRE hereda la pareja j. Como las parejas
+        # están forzadas (1->2, 2->1), cada hijo hereda el "opuesto" del origen.
+        # Comprobamos que el resultado depende de j comparando con p_herencia=1.0
+        # bajo la MISMA semilla (misma secuencia de orígenes y parejas).
+        hijos_pareja = siguiente_generacion_grafo(pob, MersenneTwister(7);
+                            probabilidades_custom=probs, p_herencia=0.0)
+        hijos_origen_misma = siguiente_generacion_grafo(pob, MersenneTwister(7);
+                            probabilidades_custom=probs, p_herencia=1.0)
+        # Heredar j en vez de i da un resultado distinto: j SÍ afecta la herencia.
+        @test hijos_pareja != hijos_origen_misma
+    end
+
+    paso("10/10 p_herencia: validación de rango ...")
+    @testset "p_herencia fuera de [0,1] lanza error" begin
+        @test_throws ErrorException siguiente_generacion_grafo([1, 2],
+                            MersenneTwister(1); p_herencia=1.5)
+        @test_throws ErrorException siguiente_generacion_grafo([1, 2],
+                            MersenneTwister(1); p_herencia=-0.1)
+    end
+end
+
 
 # ---------------------------------------------------------------------
 # Demo requerida en la Task 4

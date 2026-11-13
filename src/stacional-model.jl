@@ -9,12 +9,16 @@ include("graphModel.jl")
     ParametrosModelo
 
 Parámetros para la simulación del modelo estacionario.
-`fijar_probabilidades` permite inyectar una función que calcule probabilidades custom 
-en cada generación. Si es `nothing`, se usa el default proporcional del grafo.
+- `fijar_probabilidades` permite inyectar una función que calcule probabilidades
+  custom en cada generación. Si es `nothing`, se usa el default proporcional del
+  grafo.
+- `p_herencia` es la probabilidad de que el hijo herede el apellido del origen
+  `i` (en vez del de la pareja `j`). Por defecto `0.5`.
 """
 Base.@kwdef struct ParametrosModelo
     max_generaciones::Int = 1000
     fijar_probabilidades::Union{Function, Nothing} = nothing
+    p_herencia::Float64 = 0.5
 end
 
 """
@@ -49,7 +53,9 @@ function simular_fijacion(estado_inicial::Vector{Int};
         probs_custom = parametros.fijar_probabilidades !== nothing ? parametros.fijar_probabilidades(poblacion_actual) : nothing
         
         # Transición usando el motor estocástico basado en el grafo dirigido
-        poblacion_actual = siguiente_generacion_grafo(poblacion_actual, rng; probabilidades_custom=probs_custom)
+        poblacion_actual = siguiente_generacion_grafo(poblacion_actual, rng;
+                                                      probabilidades_custom=probs_custom,
+                                                      p_herencia=parametros.p_herencia)
         
         push!(historial, copy(poblacion_actual))
         generaciones += 1

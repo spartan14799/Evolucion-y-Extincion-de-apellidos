@@ -86,25 +86,39 @@ suma encontrada.
 
 ## 4. Dinámica de una generación
 
-El motor es **estocástico** y conserva el tamaño `N`. Para construir la
-siguiente generación se reconstruyen `N` personas: para cada una se elige un
-apellido **origen** `i` al azar, **ponderado por la frecuencia** de cada
-apellido en la generación actual, y el hijo **hereda el apellido del origen**
-`i`.
+El motor es **estocástico** y conserva el tamaño `N`. Para construir cada una de
+las `N` personas de la siguiente generación:
 
-> **Comportamiento actual y limitación.** Hoy el hijo hereda siempre el apellido
-> del origen `i`, y la probabilidad `P(i → j)` interviene a través de la
-> elección ponderada del origen. El destino `j` de la arista **todavía no**
-> modifica qué apellido hereda el hijo. Dejar que `j` influya en la herencia
-> (por ejemplo, herencia 50/50 entre `i` y `j`, o efectos asimétricos reales de
-> las aristas dirigidas) es un **punto de extensión futura**.
+1. Se elige un apellido **origen** `i` al azar, **ponderado por la frecuencia**
+   de cada apellido en la generación actual (quién inicia el emparejamiento).
+2. Se sortea la **pareja** `j` según la distribución saliente `P(i → j)` del
+   grafo.
+3. El hijo **hereda** el apellido del origen `i` con probabilidad `p_herencia`,
+   o el de la pareja `j` con probabilidad `1 - p_herencia`.
+
+Así, el **destino `j` de la arista sí influye** en la herencia: cuando
+`P(i → j)` es alta, el origen `i` se empareja con frecuencia con `j` y parte de
+su descendencia hereda `j`. En grafos **asimétricos** (`P(i → j) ≠ P(j → i)`)
+esto produce flujos de apellidos dirigidos.
+
+### El parámetro `p_herencia`
+
+El default `p_herencia = 0.5` tiene una lectura biológica: el origen del
+emparejamiento es hombre o mujer con igual probabilidad y el apellido lo
+transmite el hombre, así que la mitad de las veces el hijo hereda el apellido
+del origen y la otra mitad el de la pareja. Ajustarlo permite experimentar:
+
+- `p_herencia = 1.0`: el hijo siempre hereda el origen `i` (el destino no
+  influye en la herencia; equivale al comportamiento anterior).
+- `p_herencia = 0.0`: el hijo siempre hereda la pareja `j`.
+- valores intermedios: sesgo configurable entre ambos.
 
 ```mermaid
 flowchart TD
     A[Vector de apellidos<br/>generacion g] --> B[contar personas por apellido<br/>contar_apellidos]
     B --> C[construir GrafoApellidos<br/>probabilidades default o custom]
     C --> D[validar: salientes de cada nodo suman 1<br/>validar_grafo]
-    D --> E[reconstruir N personas:<br/>elegir origen i ponderado por frecuencia,<br/>el hijo hereda i]
+    D --> E[reconstruir N personas:<br/>1 elegir origen i ponderado por frecuencia<br/>2 sortear pareja j segun P i→j<br/>3 heredar i con prob p_herencia, si no j]
     E --> F[Vector de apellidos<br/>generacion g+1]
     F --> G{un solo apellido?}
     G -->|si| H[fijacion: estado absorbente]
@@ -143,13 +157,17 @@ validar_grafo(grafo)                   # true
 | ---------------------- | --------------------------- | ----------- | --------------------------------------------------------------------------- |
 | `max_generaciones`     | `Int`                       | `1000`      | Tope de seguridad de generaciones antes de rendirse si no hay fijación.     |
 | `fijar_probabilidades` | `Function` o `Nothing`      | `nothing`   | Estrategia para calcular probabilidades custom cada generación (ver §6).    |
+| `p_herencia`           | `Float64`                   | `0.5`       | Probabilidad de que el hijo herede el apellido del origen `i` (ver §4).     |
 
 ```julia
-# Por defecto (probabilidades proporcionales derivadas de los conteos).
+# Por defecto (probabilidades proporcionales, herencia 50/50).
 p = ParametrosModelo()
 
 # Tope de 200 generaciones.
 p = ParametrosModelo(max_generaciones = 200)
+
+# El hijo siempre hereda el apellido del origen (el destino no afecta la herencia).
+p = ParametrosModelo(p_herencia = 1.0)
 ```
 
 ### `simular_fijacion(estado_inicial; parametros, rng)`
@@ -260,7 +278,9 @@ Los tests (en [`test/test_grafo.jl`](../test/test_grafo.jl)) cubren:
    negativas lanzan error; probabilidades asimétricas custom.
 4. **Transición estocástica**: tamaño constante, diversidad no aumenta, estado
    absorbente y reproducibilidad con la misma semilla.
-5. **`simular_fijacion`**: convergencia a fijación y estructura del historial.
+5. **Herencia por pareja**: que el destino `j` influye en la herencia, los
+   extremos de `p_herencia` (`0.0` y `1.0`) y la validación de su rango.
+6. **`simular_fijacion`**: convergencia a fijación y estructura del historial.
 
 ## 9. Notas y limitaciones
 
@@ -268,6 +288,6 @@ Los tests (en [`test/test_grafo.jl`](../test/test_grafo.jl)) cubren:
   mutación ni aparición de apellidos nuevos.
 - Para poblaciones pequeñas la fijación es prácticamente segura con un tope de
   generaciones amplio.
-- **Herencia por origen**: como se explica en §4, hoy el hijo hereda el apellido
-  del origen y el destino `j` de la arista aún no influye en la herencia. Es el
-  principal punto de extensión del modelo.
+- La herencia usa un único parámetro `p_herencia` (origen vs. pareja). Modelar
+  explícitamente el **sexo** de cada individuo, o reglas de transmisión más
+  ricas (apellidos compuestos, dobles apellidos), es un posible siguiente paso.
