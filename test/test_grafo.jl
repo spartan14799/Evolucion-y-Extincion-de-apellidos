@@ -178,3 +178,46 @@ catch e
     println("Error capturado correctamente: ", e.msg)
 end
 println("-------------------\n")
+
+@testset "Transición de Generación Estocástica (Task 4)" begin
+    paso("7/8 Invariantes de la transición ...")
+    @testset "Invariantes: tamaño, diversidad, absorbente" begin
+        rng = MersenneTwister(42)
+        pob_inicial = [1, 1, 2, 2, 3, 3]
+        
+        pob_nueva = siguiente_generacion_grafo(pob_inicial, rng)
+        
+        # Tamaño constante (N entra = N sale)
+        @test length(pob_nueva) == length(pob_inicial)
+        
+        # Diversidad no aumenta (los apellidos nuevos son un subconjunto de los antiguos)
+        @test issubset(unique(pob_nueva), unique(pob_inicial))
+        
+        # Estado absorbente (si hay un solo apellido, se mantiene fijo)
+        pob_fijada = [2, 2, 2, 2]
+        @test siguiente_generacion_grafo(pob_fijada, rng) == [2, 2, 2, 2]
+    end
+    
+    paso("8/8 Reproducibilidad ...")
+    @testset "Semilla estocástica (RNG)" begin
+        pob = [1, 2, 3, 4, 5]
+        res1 = siguiente_generacion_grafo(pob, MersenneTwister(123))
+        res2 = siguiente_generacion_grafo(pob, MersenneTwister(123))
+        @test res1 == res2
+    end
+end
+
+
+# ---------------------------------------------------------------------
+# Demo requerida en la Task 4
+# ---------------------------------------------------------------------
+println("\n--- DEMO TASK 4 ---")
+rng_demo = MersenneTwister(100)
+pob_t0 = [1, 1, 2, 2, 3, 3]
+println("Generación 0: ", pob_t0)
+println("Conteos G0:   ", contar_apellidos(pob_t0))
+
+pob_t1 = siguiente_generacion_grafo(pob_t0, rng_demo)
+println("Generación 1: ", pob_t1)
+println("Conteos G1:   ", contar_apellidos(pob_t1))
+println("-------------------\n")
