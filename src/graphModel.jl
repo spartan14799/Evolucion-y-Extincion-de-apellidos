@@ -21,12 +21,13 @@ function contar_apellidos(poblacion::Vector{Int})
 end
 
 """
-    GrafoApellidos(poblacion; compatibles=nothing)
+    GrafoApellidos(poblacion; compatibles=nothing, probabilidades=nothing)
 
-Constructor que inicializa los vértices y conteos. Si no se provee `compatibles`,
-se asume un grafo completo (cada apellido es compatible con todos, incluido sí mismo).
+Constructor que inicializa los vértices y conteos. 
+- Si no se provee `compatibles`, se asume un grafo completo.
+- Si no se provee `probabilidades`, se calculan las proporcionales por defecto.
 """
-function GrafoApellidos(poblacion::Vector{Int}; compatibles=nothing)
+function GrafoApellidos(poblacion::Vector{Int}; compatibles=nothing, probabilidades=nothing)
     conteos = contar_apellidos(poblacion)
     apellidos = sort(collect(keys(conteos)))
 
@@ -40,10 +41,17 @@ function GrafoApellidos(poblacion::Vector{Int}; compatibles=nothing)
         comp = compatibles
     end
 
-    # Las probabilidades inician vacías; se calcularán en la Task 2.
-    prob = Dict{Int,Dict{Int,Float64}}()
+    # Inicialmente vacío
+    grafo = GrafoApellidos(apellidos, conteos, comp, Dict{Int,Dict{Int,Float64}}())
+    
+    # Asignación de probabilidades (default o custom)
+    if probabilidades === nothing
+        grafo.probabilidades = probabilidades_proporcionales(grafo)
+    else
+        grafo.probabilidades = probabilidades
+    end
 
-    return GrafoApellidos(apellidos, conteos, comp, prob)
+    return grafo
 end
 
 """

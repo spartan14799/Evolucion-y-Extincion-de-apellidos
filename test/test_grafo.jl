@@ -117,3 +117,64 @@ for i in grafo_demo.apellidos
     @printf("| Suma salientes: %.1f\n", suma)
 end
 println("-------------------\n")
+
+@testset "Validación y Probabilidades Custom (Task 3)" begin
+    paso("5/6 Validando grafos correctos e incorrectos ...")
+    @testset "Validación de suma y no negatividad" begin
+        poblacion = [1, 2]
+        grafo = GrafoApellidos(poblacion)
+        @test validar_grafo(grafo) == true
+
+        # Inyectar error de suma != 1
+        grafo.probabilidades[1][1] = 0.9
+        grafo.probabilidades[1][2] = 0.5
+        @test_throws ErrorException validar_grafo(grafo)
+
+        # Inyectar error de prob negativa
+        grafo.probabilidades[1][1] = -0.2
+        grafo.probabilidades[1][2] = 1.2
+        @test_throws ErrorException validar_grafo(grafo)
+    end
+
+    paso("6/6 Probabilidades asimétricas custom ...")
+    @testset "Constructor con probabilidades custom" begin
+        poblacion = [1, 2]
+        # P(1->1)=0.8, P(1->2)=0.2
+        # P(2->1)=0.1, P(2->2)=0.9  (asimétricas)
+        probs_custom = Dict(
+            1 => Dict(1 => 0.8, 2 => 0.2),
+            2 => Dict(1 => 0.1, 2 => 0.9)
+        )
+        grafo_custom = GrafoApellidos(poblacion; probabilidades=probs_custom)
+        
+        @test validar_grafo(grafo_custom) == true
+        @test probabilidades_salientes(grafo_custom, 1)[2] == 0.2
+        @test probabilidades_salientes(grafo_custom, 2)[1] == 0.1
+    end
+end
+
+# ---------------------------------------------------------------------
+# Demo requerida en la Task 3
+# ---------------------------------------------------------------------
+println("\n--- DEMO TASK 3 ---")
+pob_demo3 = [1, 2]
+probs_custom = Dict(
+    1 => Dict(1 => 0.8, 2 => 0.2),
+    2 => Dict(1 => 0.1, 2 => 0.9)
+)
+println("Construyendo grafo con probabilidades custom asimétricas...")
+grafo_valido = GrafoApellidos(pob_demo3; probabilidades=probs_custom)
+println("Validando grafo válido: ", validar_grafo(grafo_valido) ? "OK" : "Fallo")
+
+println("\nInyectando un error (suma != 1 en vértice 2)...")
+probs_invalidas = Dict(
+    1 => Dict(1 => 0.8, 2 => 0.2),
+    2 => Dict(1 => 0.1, 2 => 0.5) # Esto suma 0.6
+)
+grafo_invalido = GrafoApellidos(pob_demo3; probabilidades=probs_invalidas)
+try
+    validar_grafo(grafo_invalido)
+catch e
+    println("Error capturado correctamente: ", e.msg)
+end
+println("-------------------\n")
