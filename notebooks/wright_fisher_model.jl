@@ -20,7 +20,7 @@ end
 begin
 	import Pkg
 	Pkg.activate(joinpath(@__DIR__, ".."))
-	using Random, StatsBase, Plots, PlutoUI
+	using Random, StatsBase, Plots, PlutoUI, Printf
 
 	# ── Cargamos los módulos del proyecto tal cual están en src/ ──
 	include(joinpath(@__DIR__, "..", "src", "stacional-model.jl"))
@@ -314,22 +314,26 @@ begin
 	
 	etiquetas_aps = ["Ap. $a" for a in grafo_vis.apellidos]
 	
+	# Paleta cálida y clara: garantiza máximo contraste con texto negro en todas las celdas
+	cmap_calor = cgrad([:white, "#fef3c7", "#fde68a", "#fcd34d", "#fbbf24"], [0.0, 0.02, 0.3, 0.7, 1.0])
+	fsize = n_a <= 6 ? 12 : (n_a <= 10 ? 10 : 8)
+	font_fam = Sys.iswindows() ? "arialbd" : "sans-serif"
+	
 	p_mat = heatmap(
 		etiquetas_aps, etiquetas_aps, mat_probs,
+		yflip = true,
 		title = "Matriz de Transición P(i → j) — Grafo $(tipo_grafo)",
 		xlabel = "Apellido destino (j)", ylabel = "Apellido origen (i)",
-		color = :YlOrRd, clims = (0, maximum(mat_probs) + 0.01),
-		size = (600, 500), aspect_ratio = :equal
+		color = cmap_calor, clims = (0.0, 1.0),
+		size = (620, 520), aspect_ratio = :equal
 	)
 	
-	# Anotar valores en cada celda
+	# Anotar valores en CADA cuadro correspondiente, perfectamente centrados y en NEGRO NEGRILLA
 	for i_idx in 1:n_a
 		for j_idx in 1:n_a
 			val = mat_probs[i_idx, j_idx]
-			if val > 0.001
-				annotate!(p_mat, j_idx, i_idx, 
-					text("$(round(val, digits=2))", 8, :center, val > 0.3 ? :white : :black))
-			end
+			txt = @sprintf("%.2f", val)
+			annotate!(p_mat, j_idx, i_idx, text(txt, font(fsize, :center, :black, font_fam)))
 		end
 	end
 	
