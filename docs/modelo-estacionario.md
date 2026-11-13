@@ -13,7 +13,7 @@ A diferencia del proceso de Bienaymé–Galton–Watson (ver
 apellidos** y el tamaño total de la población **se conserva en cada
 generación**.
 
-## 1. Idea del modelo
+## Idea del modelo
 
 - La población tiene un tamaño fijo `N` que **no cambia** entre generaciones.
 - Se modela como un **grafo dirigido** con `n` vértices, uno por apellido:
@@ -35,7 +35,7 @@ modelo plano anterior (emparejamiento uniforme por bloques) es exactamente el
 caso particular de este grafo cuando es **completo** y las probabilidades son
 **proporcionales** a los conteos.
 
-## 2. Probabilidad de las aristas (modo por defecto: proporcional)
+## Probabilidad de las aristas (modo por defecto: proporcional)
 
 Por defecto, la probabilidad de la arista `i → j` se calcula de forma
 **proporcional** al conteo del apellido destino `j`, usando como denominador la
@@ -72,7 +72,7 @@ solo es compatible con `A` y `B` (`3 + 2 = 5` personas):
 P(A → A) = 3/5 = 0.6     P(A → B) = 2/5 = 0.4     (no existe arista A → C)
 ```
 
-## 3. Validación del grafo
+## Validación del grafo
 
 Para cualquier grafo (default o custom), [`validar_grafo`](../src/graphModel.jl)
 exige que:
@@ -84,7 +84,7 @@ exige que:
 Si alguna condición falla, se lanza un error explícito indicando el vértice y la
 suma encontrada.
 
-## 4. Dinámica de una generación
+## Dinámica de una generación
 
 El motor es **estocástico** y conserva el tamaño `N`. Para construir cada una de
 las `N` personas de la siguiente generación:
@@ -125,7 +125,7 @@ flowchart TD
     G -->|no| A
 ```
 
-## 5. Mapeo al código
+## Mapeo al código
 
 | Concepto del modelo                  | Elemento en el código                                   |
 | ------------------------------------ | ------------------------------------------------------- |
@@ -190,7 +190,7 @@ Invariantes garantizadas (verificadas en los tests):
   subconjunto de los de la anterior).
 - Si `fijacion == true`, todo el estado final es igual a `ganador`.
 
-## 6. Probabilidades personalizadas (API abierta)
+## Probabilidades personalizadas (API abierta)
 
 Además del modo por defecto, puedes definir el grafo a mano. Hay dos vías.
 
@@ -234,7 +234,7 @@ parametros = ParametrosModelo(max_generaciones = 200,
 Si `fijar_probabilidades === nothing` (por defecto), se usa el cálculo
 proporcional derivado de los conteos.
 
-## 7. Ejecutar la simulación
+## Ejecutar la simulación
 
 Desde la raíz del proyecto:
 
@@ -262,7 +262,7 @@ SEMILLA=7 POBLACION_INICIAL="1,1,2,2,3,3" MAX_GENERACIONES=100 \
 
 Con la misma `SEMILLA`, dos ejecuciones producen exactamente el mismo historial.
 
-## 8. Ejecutar los tests
+## Ejecutar los tests
 
 ```powershell
 julia --project=. test/test_grafo.jl
@@ -282,7 +282,7 @@ Los tests (en [`test/test_grafo.jl`](../test/test_grafo.jl)) cubren:
    extremos de `p_herencia` (`0.0` y `1.0`) y la validación de su rango.
 6. **`simular_fijacion`**: convergencia a fijación y estructura del historial.
 
-## 9. Notas y limitaciones
+## Notas y limitaciones
 
 - La diversidad de apellidos **solo puede disminuir**: el modelo no incorpora
   mutación ni aparición de apellidos nuevos.
