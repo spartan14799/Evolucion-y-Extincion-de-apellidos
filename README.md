@@ -44,15 +44,60 @@ La teoría completa está en [`docs/justificacion-teorica.md`](docs/justificacio
 
 ## Requisitos
 
-- Julia 1.6 o superior (desarrollado y probado con **Julia 1.12**).
+- Julia **1.12**.
 
 Comprueba tu versión con:
 
-```powershell
+```bash
 julia --version
 ```
 
-## Atajos con `make` (opcional pero recomendado)
+### Versión de Julia fija en todos los dispositivos
+
+El proyecto se desarrolla y prueba con **Julia 1.12**, y el `Manifest.toml`
+versionado en git está resuelto con esa versión. Usar una versión distinta
+(p. ej. 1.13) provoca errores de precompilación porque el `Manifest.toml`
+deja de ser compatible.
+
+Para garantizar la misma versión en cualquier máquina usamos
+[`juliaup`](https://github.com/JuliaLang/juliaup) (el gestor oficial de
+versiones de Julia) con un *override* de carpeta: así, dentro de este
+directorio, `julia` siempre apunta a 1.12 aunque tu versión por defecto sea
+otra.
+
+En **cada dispositivo nuevo**, tras clonar el repo, ejecuta una vez:
+
+```bash
+juliaup add 1.12            # instala Julia 1.12 si no la tienes
+juliaup override set 1.12   # fija 1.12 solo para esta carpeta
+```
+
+El *override* se guarda en la configuración de juliaup de cada máquina (no se
+versiona en git), por eso hay que repetir estos dos comandos una vez por
+dispositivo. Verifica el estado con:
+
+```bash
+juliaup override status     # lista los overrides por carpeta
+julia --version             # debe decir 1.12.x dentro de esta carpeta
+```
+
+> Si no usas juliaup, basta con tener instalado Julia 1.12 y asegurarte de que
+> es el `julia` de tu `PATH` al trabajar en el proyecto.
+
+### Pipeline de puesta a punto (resumen)
+
+```bash
+git clone <repo> && cd Evolucion-y-Extincion-de-apellidos
+juliaup add 1.12 && juliaup override set 1.12   # misma versión de Julia
+make instantiate                                 # instala las deps EXACTAS del Manifest.toml
+make pluto                                       # lanza los notebooks
+```
+
+`make instantiate` lee el `Manifest.toml` versionado e instala exactamente esas
+versiones de paquetes, por lo que el entorno queda idéntico en todos los
+dispositivos siempre que la versión de Julia coincida (de ahí el *override*).
+
+## Atajos con `make` para la ejecución
 
 El proyecto incluye un `Makefile` que envuelve todos los comandos habituales.
 Ejecuta `make` (o `make help`) para ver la lista:
@@ -204,7 +249,7 @@ Variables reconocidas:
 - `SEMILLA`: entero para reproducibilidad, o `nothing` para azar. Por defecto
   aleatoria. Con la misma semilla, dos ejecuciones dan el mismo historial.
 
-## Benchmark (opcional)
+## Benchmark
 
 Para medir el rendimiento de los métodos numéricos:
 
@@ -221,6 +266,26 @@ julia --project=. -e "import Pkg; Pkg.add(\"BenchmarkTools\")"
 ```
 
 ## Solución de problemas
+
+- **`The active manifest file has dependencies that were resolved with a
+  different julia version` seguido de fallos de precompilación de `Plots` /
+  `GR` / `GR_jll` / `Libtiff_jll` (p. ej. `Zstd_jll ... is required but does
+  not seem to be installed`)**: tu versión de Julia no coincide con la del
+  `Manifest.toml`. Asegúrate de usar Julia 1.12 en esta carpeta (ver *Versión
+  de Julia fija en todos los dispositivos*):
+
+  ```bash
+  juliaup override set 1.12
+  julia --version            # debe decir 1.12.x
+  ```
+
+  Si el `Manifest.toml` quedó resuelto con otra versión, regénéralo con la
+  versión correcta:
+
+  ```bash
+  rm Manifest.toml
+  julia --project=. -e "import Pkg; Pkg.resolve(); Pkg.instantiate()"
+  ```
 
 - **`Package X not found in current path`**: olvidaste `--project=.`, o falta
   ejecutar `Pkg.instantiate()`. Revisa la sección *Inicializar el proyecto*.
