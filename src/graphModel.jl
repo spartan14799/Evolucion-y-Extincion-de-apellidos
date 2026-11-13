@@ -1,6 +1,6 @@
 # src/graphModel.jl
 
-struct GrafoApellidos
+mutable struct GrafoApellidos
     apellidos::Vector{Int}
     conteos::Dict{Int,Int}
     compatibles::Dict{Int,Vector{Int}}
