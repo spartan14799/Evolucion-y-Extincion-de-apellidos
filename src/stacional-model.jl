@@ -15,7 +15,6 @@ en cada generación. Si es `nothing`, se usa el default proporcional del grafo.
 Base.@kwdef struct ParametrosModelo
     max_generaciones::Int = 1000
     fijar_probabilidades::Union{Function, Nothing} = nothing
-    tamano_pareja::Int = 2 # Mantenido por compatibilidad histórica y documentación
 end
 
 """

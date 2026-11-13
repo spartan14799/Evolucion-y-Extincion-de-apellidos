@@ -148,15 +148,10 @@ function siguiente_generacion_grafo(poblacion::Vector{Int}, rng::AbstractRNG=Ran
     
     for k in 1:N
         # Elegir el apellido origen i al azar, ponderado por su frecuencia
+        # (quién inicia el emparejamiento). El hijo hereda el apellido del
+        # origen i, por lo que P(i -> j) interviene a través de esta elección
+        # ponderada del origen.
         i = sample(rng, apellidos_activos, pesos_origen)
-        
-        # Sortear la pareja j según la distribución saliente P(i -> j)
-        probs_i = probabilidades_salientes(grafo, i)
-        destinos = collect(keys(probs_i))
-        pesos_destinos = Weights(collect(values(probs_i)))
-        j = sample(rng, destinos, pesos_destinos)
-        
-        # El hijo hereda el apellido del origen i
         nueva_poblacion[k] = i
     end
     

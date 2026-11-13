@@ -18,8 +18,17 @@ function main()
     estado_inicial = parse.(Int, split(estado_str, ","))
     max_gens = parse(Int, get(ENV, "MAX_GENERACIONES", "100"))
 
+    # Semilla: entero fijo (reproducible) o azar.
+    # SEMILLA="nothing" (o variable ausente con default aleatorio) => azar.
+    semilla = if haskey(ENV, "SEMILLA")
+        ENV["SEMILLA"] == "nothing" ? nothing : parse(Int, ENV["SEMILLA"])
+    else
+        nothing
+    end
+
     println("Población inicial N = $(length(estado_inicial)): $estado_inicial")
     println("Máximo de generaciones: $max_gens")
+    println("Semilla: $(semilla === nothing ? "aleatoria" : semilla)")
 
     # 2. Imprimir la matriz/tabla de probabilidades de la primera generación
     println("\n--- Grafo de la Generación 0 ---")
@@ -49,7 +58,7 @@ function main()
 
     # 4. Configurar y correr la simulación (usando el default proporcional)
     parametros = ParametrosModelo(max_generaciones=max_gens)
-    rng = MersenneTwister() # Semilla aleatoria libre
+    rng = semilla === nothing ? MersenneTwister() : MersenneTwister(semilla)
     
     println("Corriendo simulación estocástica por pareja...")
     resultado = simular_fijacion(estado_inicial; parametros=parametros, rng=rng)
