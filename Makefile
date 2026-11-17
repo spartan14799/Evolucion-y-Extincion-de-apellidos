@@ -11,7 +11,7 @@ PROJECT = --project=.
 
 .DEFAULT_GOAL := help
 
-.PHONY: help instantiate pluto bgw wf simulation stacional test test-markov test-grafo bench
+.PHONY: help instantiate pluto bgw wf parejas simulation stacional test test-markov test-grafo bench
 
 help: ## Muestra esta ayuda
 	@echo "Objetivos disponibles:"
@@ -30,6 +30,9 @@ bgw: ## Abre el notebook del modelo Bienayme-Galton-Watson
 
 wf: ## Abre el notebook del modelo Wright-Fisher
 	$(JULIA) $(PROJECT) scripts/pluto.jl wf
+
+parejas: ## Abre el notebook del modelo por parejas (experiments_couple_model)
+	$(JULIA) $(PROJECT) scripts/pluto.jl parejas
 
 simulation: ## Ejecuta la simulacion de demostracion (Galton-Watson)
 	$(JULIA) $(PROJECT) scripts/run_simulation.jl
