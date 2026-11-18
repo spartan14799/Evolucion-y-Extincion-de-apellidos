@@ -24,21 +24,20 @@ La teoría completa está en [`docs/justificacion-teorica.md`](docs/justificacio
 ├── Makefile                  # Atajos de ejecución (make help)
 ├── README.md
 ├── docs/
-│   ├── justificacion-teorica.md   # Modelo matemático y su mapeo al código
-│   └── modelo-estacionario.md     # Modelo de población constante (fijación)
+│   └── justificacion-teorica.md   # Modelo matemático y su mapeo al código
 ├── src/
 │   ├── numericalMethods.jl   # biseccion, newton, secante
 │   ├── markovModels.jl       # ModeloPBGW y cálculo/simulación de extinción
-│   ├── graphModel.jl         # Motor del modelo estacionario como grafo dirigido
-│   └── stacional-model.jl    # Modelo estacionario (grafo dirigido, población constante)
+│   ├── modeloParejas.jl      # Motor del modelo por parejas (modelo vigente)
+│   ├── graphTopologies.jl    # Generadores de topologías del grafo de apellidos
+│   ├── experimentos.jl       # Métricas y runner de experimentos del modelo por parejas
+│   └── visualizacion.jl      # Utilidades de graficación (grafo, conteos, diversidad)
 ├── scripts/
 │   ├── pluto.jl                  # Lanzador multiplataforma de los notebooks Pluto
-│   ├── run_simulation.jl         # Simulación inicial de demostración
-│   └── run_stacional_model.jl    # Ejecuta el modelo estacionario
+│   └── run_simulation.jl         # Simulación inicial de demostración
 └── test/
     ├── runtests.jl           # Tests de los métodos numéricos
     ├── test_markov.jl        # Tests del modelo de Markov / simulación
-    ├── test_grafo.jl         # Tests del modelo estacionario (grafo dirigido)
     └── benchmarks.jl         # Benchmark de los métodos numéricos
 ```
 
@@ -113,12 +112,10 @@ Objetivos principales:
 | `make instantiate` | Instala y precompila las dependencias (solo una vez)      |
 | `make pluto`       | Lanza el servidor Pluto (eliges el notebook en el navegador) |
 | `make bgw`         | Abre el notebook del modelo Bienaymé–Galton–Watson        |
-| `make wf`          | Abre el notebook del modelo Wright–Fisher                 |
+| `make parejas`     | Abre el notebook del modelo por parejas                   |
 | `make simulation`  | Ejecuta la simulación de demostración                     |
-| `make stacional`   | Ejecuta el modelo estacionario (grafo dirigido)           |
 | `make test`        | Tests de los métodos numéricos                            |
 | `make test-markov` | Tests del modelo de Markov / simulación                   |
-| `make test-grafo`  | Tests del modelo estacionario                             |
 | `make bench`       | Benchmark de los métodos numéricos                        |
 
 El `Makefile` usa el `julia` de tu `PATH`. Si lo tienes instalado en otra ruta
@@ -146,7 +143,7 @@ Abrir directamente un notebook concreto:
 
 ```bash
 julia --project=. scripts/pluto.jl bgw    # Bienaymé–Galton–Watson  (make bgw)
-julia --project=. scripts/pluto.jl wf     # Wright–Fisher           (make wf)
+julia --project=. scripts/pluto.jl parejas # Modelo por parejas      (make parejas)
 ```
 
 ## Inicializar el proyecto
@@ -188,12 +185,6 @@ Tests del modelo de Markov y la simulación de extinción:
 julia --project=. test/test_markov.jl
 ```
 
-Tests del modelo estacionario (grafo dirigido / fijación):
-
-```powershell
-julia --project=. test/test_grafo.jl
-```
-
 El segundo imprime el progreso en vivo (bloques `1/7`, `2/7`, ...) con marcas de
 tiempo, para que puedas ver que está avanzando. La primera ejecución tarda más
 porque Julia precompila las dependencias; las siguientes son más rápidas.
@@ -218,36 +209,6 @@ Muestra, para un modelo de natalidad alta y otro de natalidad baja:
 - Trayectorias de ejemplo de linajes individuales.
 - Una validación Monte Carlo que compara la frecuencia de extinción simulada
   contra la `q` teórica.
-
-## Ejecutar el modelo estacionario (grafo dirigido)
-
-Este modelo mantiene el tamaño de la población fijo y lo representa como un
-**grafo dirigido**: cada vértice es un apellido con su conteo de personas, y
-cada arista dirigida `i → j` lleva la probabilidad de que una persona de
-apellido `i` se reproduzca con una de apellido `j`. Por defecto esas
-probabilidades son proporcionales a los conteos y las salientes de cada vértice
-suman 1. El proceso simula la deriva hacia la **fijación** de un único apellido.
-Teoría, fórmulas y API en
-[`docs/modelo-estacionario.md`](docs/modelo-estacionario.md).
-
-```powershell
-julia --project=. scripts/run_stacional_model.jl
-```
-
-Puedes configurar la ejecución con variables de entorno (tienen prioridad):
-
-```bash
-SEMILLA=7 POBLACION_INICIAL="1,1,2,2,3,3" MAX_GENERACIONES=100 \
-    julia --project=. scripts/run_stacional_model.jl
-```
-
-Variables reconocidas:
-
-- `POBLACION_INICIAL`: ids de apellido separados por comas (p.ej. `1,1,2,2,3,3`).
-  Por defecto `1,1,2,2,3,3,4,4`.
-- `MAX_GENERACIONES`: tope de generaciones de seguridad. Por defecto `100`.
-- `SEMILLA`: entero para reproducibilidad, o `nothing` para azar. Por defecto
-  aleatoria. Con la misma semilla, dos ejecuciones dan el mismo historial.
 
 ## Benchmark
 

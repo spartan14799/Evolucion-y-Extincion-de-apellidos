@@ -6,7 +6,6 @@
 # Uso (desde la raiz del proyecto):
 #     julia --project=. scripts/pluto.jl          # servidor Pluto (elige notebook en el navegador)
 #     julia --project=. scripts/pluto.jl bgw      # abre notebooks/bgw_model.jl
-#     julia --project=. scripts/pluto.jl wf        # abre notebooks/wright_fisher_model.jl
 #     julia --project=. scripts/pluto.jl parejas   # abre notebooks/experiments_couple_model.jl
 #
 # No hardcodea la ruta de Julia: usa el interprete con el que se lanza y el
@@ -23,7 +22,6 @@ using Pluto
 
 const NOTEBOOKS = Dict(
     "bgw" => joinpath("notebooks", "bgw_model.jl"),
-    "wf"  => joinpath("notebooks", "wright_fisher_model.jl"),
     "parejas" => joinpath("notebooks", "experiments_couple_model.jl"),
 )
 
