@@ -267,6 +267,338 @@ md"### Probabilidad de ser el unico superviviente (solo corridas que fijaron uno
 # ╔═╡ c0000001-0000-0000-0000-000000000047
 graficar_prob_ganar(rep)
 
+# ╔═╡ c0000001-0000-0000-0000-000000000100
+md"""
+---
+## Area apilada de proporciones por generacion
+
+Misma informacion que el conteo por apellido, pero en proporciones (cada
+generacion suma 1). El area total es constante porque el modelo conserva N; lo
+que cambia es el reparto entre apellidos a medida que la diversidad baja.
+"""
+
+# ╔═╡ c0000001-0000-0000-0000-000000000101
+begin
+    _hist_area = resultado.historial
+    _ngen_area = length(_hist_area)
+    _M_area = conteos_por_gen(_hist_area, apellidos_topo)
+    _props_area = _M_area ./ sum(_M_area; dims = 2)
+    _labels_area = reshape(["Apellido $a" for a in apellidos_topo], 1, :)
+    areaplot(0:(_ngen_area - 1), _props_area;
+             label = _labels_area,
+             xlabel = "Generacion", ylabel = "Proporcion de la poblacion",
+             title = "Distribucion de apellidos (area apilada)",
+             fillalpha = 0.75, palette = :tab10, legend = :outertopright,
+             ylims = (0, 1))
+end
+
+# ╔═╡ c0000001-0000-0000-0000-000000000110
+md"""
+---
+## Estado generacion por generacion
+
+Detalle de las primeras y ultimas generaciones de la corrida actual: cuantas
+personas tiene cada apellido y cuantos apellidos siguen vivos.
+"""
+
+# ╔═╡ c0000001-0000-0000-0000-000000000111
+begin
+    function _formato_gen_parejas(gen_idx, estado)
+        distribucion = sort(collect(contar(estado)))
+        resumen = join(["ap $k: $v" for (k, v) in distribucion], ", ")
+        n_unicos = length(unique(estado))
+        "**Gen $(gen_idx - 1)** ($n_unicos apellidos) -> [$resumen]"
+    end
+
+    _hist_det = resultado.historial
+    _ng_det = length(_hist_det)
+    _primeras = min(5, _ng_det)
+    _ult_start = max(_primeras + 1, _ng_det - 4)
+
+    _lineas = String[]
+    for i in 1:_primeras
+        push!(_lineas, _formato_gen_parejas(i, _hist_det[i]))
+    end
+    if _ult_start > _primeras + 1
+        push!(_lineas, "... ($(_ult_start - _primeras - 1) generaciones intermedias) ...")
+    end
+    for i in _ult_start:_ng_det
+        push!(_lineas, _formato_gen_parejas(i, _hist_det[i]))
+    end
+    Markdown.parse(join(_lineas, "\n\n"))
+end
+
+# ╔═╡ c0000001-0000-0000-0000-000000000120
+md"""
+---
+## Matriz de probabilidad de emparejamiento P(i -> j)
+
+Para la poblacion inicial, cada celda `(i, j)` es la probabilidad de que una
+persona del apellido `i` se empareje con una del apellido `j`, segun el modo de
+probabilidad elegido y las aristas de la topologia. Las filas suman 1. Las
+celdas en 0 son apellidos que **no pueden** emparejarse (sin arista). Es el
+analogo, en el modelo por parejas, de la matriz de transicion del grafo.
+"""
+
+# ╔═╡ c0000001-0000-0000-0000-000000000121
+begin
+    _ids_mat = apellidos_topo
+    _n_mat = length(_ids_mat)
+    _vivos_mat = Set(_ids_mat)
+    _mat = zeros(_n_mat, _n_mat)
+    for (ii, i) in enumerate(_ids_mat)
+        destinos, pesos = pesos_emparejamiento(i, compatibles, conteos_ini, _vivos_mat, Symbol(modo_prob))
+        s = sum(pesos)
+        if s > 0
+            for (d, w) in zip(destinos, pesos)
+                _mat[ii, findfirst(==(d), _ids_mat)] = w / s
+            end
+        end
+    end
+    _etq_mat = ["ap $a" for a in _ids_mat]
+    _cmap = cgrad([:white, "#fef08a", "#fdba74", "#f87171", "#ef4444"], [0.0, 0.05, 0.35, 0.7, 1.0])
+    _fsize = _n_mat <= 6 ? 10 : (_n_mat <= 10 ? 8 : 6)
+    _pmat = heatmap(_etq_mat, _etq_mat, _mat;
+                    yflip = true,
+                    title = "P(i -> j) emparejamiento ($(modo_prob))",
+                    xlabel = "Apellido pareja (j)", ylabel = "Apellido origen (i)",
+                    color = _cmap, clims = (0.0, 1.0),
+                    size = (560, 480), aspect_ratio = :equal)
+    for ii in 1:_n_mat, jj in 1:_n_mat
+        annotate!(_pmat, jj, ii, text(@sprintf("%.2f", _mat[ii, jj]), _fsize, :center, :black))
+    end
+    _pmat
+end
+
+# ╔═╡ c0000001-0000-0000-0000-000000000130
+md"""
+---
+## Distribucion del tiempo hasta el estado absorbente
+
+Cada corrida para al fijar un apellido o al alcanzar un equilibrio permanente
+(o al tope de generaciones). Repetimos muchas corridas de la configuracion
+actual y vemos cuantas generaciones tarda tipicamente. Solo se cuentan las
+corridas que terminaron absorbidas; las transitorias (cortadas por el tope) se
+reportan aparte.
+"""
+
+# ╔═╡ c0000001-0000-0000-0000-000000000131
+begin
+    _gen_abs = Int[]
+    _n_transit = 0
+    for _r in 1:n_reps
+        _res = correr_experimento(estado_inicial, compatibles;
+                                  modo_prob = Symbol(modo_prob),
+                                  max_generaciones = max_gen,
+                                  semilla = _r)
+        if _res.absorbido
+            push!(_gen_abs, _res.generaciones)
+        elseif _res.transitorio
+            _n_transit += 1
+        end
+    end
+
+    if isempty(_gen_abs)
+        md"Ninguna de las $(n_reps) corridas alcanzo estado absorbente dentro del tope ($(max_gen) generaciones)."
+    else
+        _p_hist = histogram(_gen_abs;
+                            bins = max(10, div(length(_gen_abs), 5)),
+                            xlabel = "Generaciones hasta absorcion",
+                            ylabel = "Frecuencia",
+                            title = "Tiempo hasta absorcion ($(length(_gen_abs))/$(n_reps) corridas)",
+                            label = "Corridas absorbidas", color = :steelblue,
+                            alpha = 0.75, size = (780, 380))
+        vline!(_p_hist, [mean(_gen_abs)];
+               label = @sprintf("Media = %.1f", mean(_gen_abs)),
+               color = :red, lw = 2, linestyle = :dash)
+        _p_hist
+    end
+end
+
+# ╔═╡ c0000001-0000-0000-0000-000000000132
+md"""
+### Probabilidad de ganar frente a la frecuencia inicial
+
+En el modelo neutral, la probabilidad de que un apellido sea el unico
+superviviente de su componente conexa es proporcional a su frecuencia inicial
+**dentro de esa componente**. Comparamos la probabilidad empirica de ganar
+(`prob_ganar`, de las repeticiones de arriba) contra la frecuencia inicial de
+cada apellido. Para una sola componente conexa, ambas deberian coincidir salvo
+ruido muestral.
+"""
+
+# ╔═╡ c0000001-0000-0000-0000-000000000133
+begin
+    _tot_ini = length(estado_inicial)
+    _freq_ini = Dict(a => get(conteos_ini, a, 0) / _tot_ini for a in apellidos_topo)
+    _filas_pg = ["| Apellido | Personas iniciales | Frecuencia inicial | P(unico superviviente) empirica |",
+                 "|:--|:--|:--|:--|"]
+    for a in apellidos_topo
+        _pg = get(rep.prob_ganar, a, 0.0)
+        push!(_filas_pg, "| ap $a | $(get(conteos_ini, a, 0)) | $(round(_freq_ini[a], digits=3)) | $(round(_pg, digits=3)) |")
+    end
+    Markdown.parse(join(_filas_pg, "\n"))
+end
+
+# ╔═╡ c0000001-0000-0000-0000-000000000140
+md"""
+---
+## Arbol genealogico de linajes (Censo DANE 2018)
+
+Simulamos el arbol genealogico generacion por generacion con el motor del modelo
+por parejas (`siguiente_generacion_parejas`). Cada fila es una generacion, cada
+circulo una persona (el color es su apellido) y las lineas conectan cada pareja
+de padres con sus dos hijos. Usamos los 10 apellidos mas frecuentes de Colombia
+segun el Censo Nacional de Poblacion y Vivienda (DANE 2018).
+
+A diferencia del modelo antiguo, aqui la unidad que se reproduce es la PAREJA:
+cada pareja de la generacion `t` aporta exactamente dos hijos a la generacion
+`t+1`, que heredan el apellido de uno de los dos padres.
+"""
+
+# ╔═╡ c0000001-0000-0000-0000-000000000141
+md"""**Modo de poblacion inicial**: $(@bind modo_dane Select([
+    "equitativo" => "Equitativo (1 pareja por apellido)",
+    "dane" => "Proporcional al Censo DANE 2018",
+], default="equitativo"))"""
+
+# ╔═╡ c0000001-0000-0000-0000-000000000142
+md"""**Parejas totales** (poblacion = 2 x parejas): $(@bind parejas_dane Slider(5:1:20, default=10, show_value=true))"""
+
+# ╔═╡ c0000001-0000-0000-0000-000000000143
+md"""**Modo de probabilidad**: $(@bind modo_prob_dane Select([
+    "ponderado" => "Ponderado por conteo",
+    "uniforme_aristas" => "Uniforme por aristas",
+], default="ponderado"))"""
+
+# ╔═╡ c0000001-0000-0000-0000-000000000144
+md"""**Semilla de la partida**: $(@bind semilla_dane Slider(1:100, default=7, show_value=true))"""
+
+# ╔═╡ c0000001-0000-0000-0000-000000000145
+md"""**Maximo de generaciones a mostrar**: $(@bind max_gen_dane Slider(5:5:40, default=25, show_value=true))"""
+
+# ╔═╡ c0000001-0000-0000-0000-000000000146
+begin
+    _ap_col = ["Rodriguez", "Martinez", "Garcia", "Gomez", "Lopez",
+               "Hernandez", "Perez", "Sanchez", "Gonzalez", "Ramirez"]
+    _conteos_dane = [754991, 602593, 574856, 569534, 565394, 502626, 493764, 487112, 470505, 441179]
+    _pesos_dane = _conteos_dane ./ sum(_conteos_dane)
+    _colores_dane = ["#1E88E5", "#8E24AA", "#FB8C00", "#212121", "#6D4C41",
+                     "#E53935", "#43A047", "#00ACC1", "#FDD835", "#3949AB"]
+
+    _N_dane = 2 * parejas_dane
+    _rng_dane = MersenneTwister(semilla_dane)
+
+    # Poblacion inicial sobre 10 apellidos. Cada pareja aporta 2 personas del
+    # mismo apellido inicial, de modo que el tamano total siempre es par.
+    _apellidos_pareja = if modo_dane == "equitativo"
+        [mod1(k, 10) for k in 1:parejas_dane]
+    else
+        sample(_rng_dane, 1:10, Weights(_pesos_dane), parejas_dane)
+    end
+    _pob_dane = Int[]
+    for a in _apellidos_pareja
+        append!(_pob_dane, (a, a))
+    end
+
+    # Grafo completo sobre los 10 apellidos (todos pueden emparejarse con todos).
+    _compat_dane = topo_completo(10)
+
+    # Simulamos guardando el historial con el motor del modelo por parejas.
+    _hist_dane = [copy(_pob_dane)]
+    _caidos = Dict{Int,Int}()
+    for g in 1:max_gen_dane
+        _actual = _hist_dane[g]
+        _hijos, _ = siguiente_generacion_parejas(_actual, _compat_dane, _rng_dane;
+                                                 modo_prob = Symbol(modo_prob_dane))
+        push!(_hist_dane, _hijos)
+        _vivos = Set(_hijos)
+        for a in unique(_hist_dane[1])
+            if a ∉ _vivos && !haskey(_caidos, a)
+                _caidos[a] = g
+            end
+        end
+        length(_vivos) == 1 && break
+    end
+
+    _G_dane = length(_hist_dane) - 1
+    _ganador_dane = _hist_dane[end][1]
+    _fijo_dane = length(unique(_hist_dane[end])) == 1
+
+    # Dibujo del arbol: una columna por persona, una fila por generacion.
+    _p_arbol = plot(size = (820, max(460, 30 * (_G_dane + 1))),
+                    legend = :outerright,
+                    xlims = (0.3, _N_dane + 0.7),
+                    ylims = (-_G_dane - 0.7, 0.7),
+                    yticks = (-(0:_G_dane), ["Gen $g" for g in 0:_G_dane]),
+                    title = "Arbol genealogico por parejas (DANE 2018)",
+                    grid = false, framestyle = :box)
+
+    # Lineas de parentesco: el motor devuelve los hijos agrupados de dos en dos
+    # por pareja, asi que conectamos cada par de hijos con un padre de su mismo
+    # apellido (conexion visual aproximada).
+    _xc = Float64[]; _yc = Float64[]
+    for g in 1:_G_dane
+        _padres = _hist_dane[g]
+        _hijos = _hist_dane[g + 1]
+        _np = length(_hijos)
+        for k in 1:2:(_np - 1)
+            _ap_hijo = _hijos[k]
+            _padres_idx = findall(==(_ap_hijo), _padres)
+            _pi = isempty(_padres_idx) ? rand(_rng_dane, 1:_np) : rand(_rng_dane, _padres_idx)
+            for h in (k, k + 1)
+                push!(_xc, _pi); push!(_yc, -(g - 1))
+                push!(_xc, h);   push!(_yc, -g)
+                push!(_xc, NaN); push!(_yc, NaN)
+            end
+        end
+    end
+    plot!(_p_arbol, _xc, _yc; color = :black, alpha = 0.5, lw = 1.1, label = false)
+
+    for ap in 1:10
+        _xs = Float64[]; _ys = Float64[]
+        for g in 0:_G_dane
+            for i in 1:_N_dane
+                if _hist_dane[g + 1][i] == ap
+                    push!(_xs, i); push!(_ys, -g)
+                end
+            end
+        end
+        if !isempty(_xs)
+            scatter!(_p_arbol, _xs, _ys; color = _colores_dane[ap], markersize = 8,
+                     markerstrokecolor = :black, markerstrokewidth = 1,
+                     label = _ap_col[ap])
+        end
+    end
+    _p_arbol
+end
+
+# ╔═╡ c0000001-0000-0000-0000-000000000147
+begin
+    _nom_ganador = _ap_col[_ganador_dane]
+    _ext_ord = sort(collect(_caidos), by = x -> x[2])
+    _filas_ext = String[]
+    for (pos, (ap_id, gen_ext)) in enumerate(_ext_ord)
+        push!(_filas_ext, "$pos. **$(_ap_col[ap_id])** (extinto en Gen $gen_ext)")
+    end
+    _resumen_ext = isempty(_filas_ext) ? "*Ningun apellido se extinguio aun.*" : join(_filas_ext, "<br>")
+
+    md"""
+    ### Resultado del arbol
+
+    | Campo | Valor |
+    |:--|:--|
+    | Estado final | **$(_fijo_dane ? "Fijacion de un apellido" : "Sin fijacion en $(_G_dane) generaciones")** |
+    | Apellido dominante | **$(_nom_ganador)** |
+    | Generaciones | **$(_G_dane)** |
+    | Modo inicial | **$(modo_dane)** |
+    | Modo de probabilidad | **$(modo_prob_dane)** |
+
+    **Cronologia de extincion:**<br>
+    $(_resumen_ext)
+    """
+end
+
 # ╔═╡ c0000001-0000-0000-0000-000000000050
 md"""
 ---
@@ -317,4 +649,22 @@ md"""
 # ╠═c0000001-0000-0000-0000-000000000045
 # ╟─c0000001-0000-0000-0000-000000000046
 # ╠═c0000001-0000-0000-0000-000000000047
+# ╟─c0000001-0000-0000-0000-000000000100
+# ╠═c0000001-0000-0000-0000-000000000101
+# ╟─c0000001-0000-0000-0000-000000000110
+# ╟─c0000001-0000-0000-0000-000000000111
+# ╟─c0000001-0000-0000-0000-000000000120
+# ╠═c0000001-0000-0000-0000-000000000121
+# ╟─c0000001-0000-0000-0000-000000000130
+# ╠═c0000001-0000-0000-0000-000000000131
+# ╟─c0000001-0000-0000-0000-000000000132
+# ╟─c0000001-0000-0000-0000-000000000133
+# ╟─c0000001-0000-0000-0000-000000000140
+# ╟─c0000001-0000-0000-0000-000000000141
+# ╟─c0000001-0000-0000-0000-000000000142
+# ╟─c0000001-0000-0000-0000-000000000143
+# ╟─c0000001-0000-0000-0000-000000000144
+# ╟─c0000001-0000-0000-0000-000000000145
+# ╠═c0000001-0000-0000-0000-000000000146
+# ╟─c0000001-0000-0000-0000-000000000147
 # ╟─c0000001-0000-0000-0000-000000000050
