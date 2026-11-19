@@ -14,7 +14,11 @@ El proyecto está escrito en [Julia](https://julialang.org/).
 - Simula la evolución de linajes generación a generación.
 - Contrasta el resultado teórico contra una estimación Monte Carlo.
 
-La teoría completa está en [`docs/justificacion-teorica.md`](docs/justificacion-teorica.md).
+La teoría del proceso de ramificación está en
+[`docs/justificacion-teorica.md`](docs/justificacion-teorica.md). El modelo por
+parejas sobre el grafo de apellidos (reglas, modos de probabilidad, criterio de
+parada y catálogo de experimentos) está en
+[`docs/modelo-parejas.md`](docs/modelo-parejas.md).
 
 ## Estructura
 
@@ -24,7 +28,8 @@ La teoría completa está en [`docs/justificacion-teorica.md`](docs/justificacio
 ├── Makefile                  # Atajos de ejecución (make help)
 ├── README.md
 ├── docs/
-│   └── justificacion-teorica.md   # Modelo matemático y su mapeo al código
+│   ├── justificacion-teorica.md   # Modelo matemático y su mapeo al código
+│   └── modelo-parejas.md          # Modelo por parejas: reglas, parada y experimentos
 ├── src/
 │   ├── numericalMethods.jl   # biseccion, newton, secante
 │   ├── markovModels.jl       # ModeloPBGW y cálculo/simulación de extinción
@@ -34,7 +39,8 @@ La teoría completa está en [`docs/justificacion-teorica.md`](docs/justificacio
 │   └── visualizacion.jl      # Utilidades de graficación (grafo, conteos, diversidad)
 ├── scripts/
 │   ├── pluto.jl                  # Lanzador multiplataforma de los notebooks Pluto
-│   └── run_simulation.jl         # Simulación inicial de demostración
+│   ├── run_simulation.jl         # Simulación inicial de demostración
+│   └── experimentos_parejas.jl   # Catálogo reproducible: escribe PNG + CSV en output/
 └── test/
     ├── runtests.jl           # Tests de los métodos numéricos
     ├── test_markov.jl        # Tests del modelo de Markov / simulación
@@ -113,6 +119,7 @@ Objetivos principales:
 | `make pluto`       | Lanza el servidor Pluto (eliges el notebook en el navegador) |
 | `make bgw`         | Abre el notebook del modelo Bienaymé–Galton–Watson        |
 | `make parejas`     | Abre el notebook del modelo por parejas                   |
+| `make experimentos`| Corre el catálogo de experimentos por parejas (PNG + CSV en `output/`) |
 | `make simulation`  | Ejecuta la simulación de demostración                     |
 | `make test`        | Tests de los métodos numéricos                            |
 | `make test-markov` | Tests del modelo de Markov / simulación                   |
@@ -145,6 +152,48 @@ Abrir directamente un notebook concreto:
 julia --project=. scripts/pluto.jl bgw    # Bienaymé–Galton–Watson  (make bgw)
 julia --project=. scripts/pluto.jl parejas # Modelo por parejas      (make parejas)
 ```
+
+El modelo por parejas está documentado en
+[`docs/modelo-parejas.md`](docs/modelo-parejas.md).
+
+## Catálogo reproducible de experimentos (sin Pluto)
+
+Para resultados citables sin abrir Pluto, `scripts/experimentos_parejas.jl` corre
+un catálogo fijo de experimentos (completo, Romeo y Julieta, cadena con puente,
+estrella, anillo, grid, bipartito, tripartito y componentes) con semillas fijas y
+escribe a disco en `output/`:
+
+- Un **PNG** del grafo inicial, del conteo por apellido, de la diversidad y de la
+  distribución de supervivientes, por cada experimento.
+- Un **CSV** (`output/resumen_experimentos.csv`) con el resumen agregado de las
+  repeticiones: probabilidad de absorción, nº medio de supervivientes,
+  probabilidad de ganar por apellido, probabilidad de que el puente muera primero
+  y mutaciones medias.
+
+```bash
+julia --project=. scripts/experimentos_parejas.jl   # o: make experimentos
+```
+
+Usa solo `DelimitedFiles` (librería estándar), sin dependencias nuevas. Se
+parametriza por variables de entorno (con valores por defecto reproducibles):
+
+| Variable | Qué controla | Default |
+| --- | --- | --- |
+| `EXP_N_REPS` | repeticiones por experimento | `200` |
+| `EXP_PAREJAS` | parejas por apellido en el estado inicial | `3` |
+| `EXP_SEMILLA_BASE` | semilla base de las repeticiones | `1` |
+| `EXP_MAX_GEN` | tope de generaciones por corrida | `1000` |
+| `EXP_SEMILLA_FIG` | semilla de la corrida de ejemplo (figuras) | `7` |
+| `EXP_OUTDIR` | carpeta de salida | `output` |
+
+Ejemplo con otra configuración:
+
+```bash
+EXP_N_REPS=500 EXP_PAREJAS=5 julia --project=. scripts/experimentos_parejas.jl
+```
+
+La carpeta `output/` está en `.gitignore`: es salida generada, se regenera con el
+script.
 
 ## Inicializar el proyecto
 
