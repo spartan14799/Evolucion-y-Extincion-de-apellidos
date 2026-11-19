@@ -33,12 +33,12 @@ end
 
 # ╔═╡ 00000002-0002-0002-0002-000000000002
 md"""
-# 🌳 Modelo de Bienaymé-Galton-Watson (PBGW)
+# Modelo de Bienaymé-Galton-Watson (PBGW)
 ## Extinción y Supervivencia de Apellidos como Proceso de Ramificación
 
 ---
 
-### 📖 ¿Qué es este modelo?
+### ¿Qué es este modelo?
 
 El **proceso de Bienaymé-Galton-Watson** (BGW) es un modelo clásico de procesos de ramificación. Fue propuesto originalmente en el siglo XIX precisamente para estudiar nuestro problema: **la extinción de apellidos aristocráticos**.
 
@@ -57,7 +57,7 @@ Si $Z_n = 0$ → **extinción** (estado absorbente). Esto es lo que rastrea `sim
 
 # ╔═╡ 00000002-0002-0002-0002-000000000003
 md"""
-### ⛓️ La Cadena de Markov y la Función Generadora
+### La Cadena de Markov y la Función Generadora
 
 El proceso BGW es una cadena de Markov sobre los enteros no negativos.
 
@@ -74,22 +74,22 @@ Para encontrar $q$, la función `probabilidad_extincion()` define $h(t) = g(t) -
 
 # ╔═╡ 00000002-0002-0002-0002-000000000004
 md"""
-### 🔑 Los Tres Regímenes
+### Los Tres Regímenes
 
 El parámetro clave es la **media de descendencia** $m = \mathbb{E}[X]$, calculada por `esperanza(modelo)`:
 
 | Régimen | Condición | Destino | $q$ | Función del proyecto |
 |:--|:--|:--|:--|:--|
-| 🔴 **Subcrítico** | $m < 1$ | Extinción **segura** | $q = 1$ | `es_extincion_segura() → true` |
-| 🟡 **Crítico** | $m = 1$ | Extinción **segura** | $q = 1$ | `es_extincion_segura() → true` |
-| 🟢 **Supercrítico** | $m > 1$ | Puede **sobrevivir** | $q < 1$ | `es_extincion_segura() → false` |
+| **Subcrítico** | $m < 1$ | Extinción **segura** | $q = 1$ | `es_extincion_segura() → true` |
+| **Crítico** | $m = 1$ | Extinción **segura** | $q = 1$ | `es_extincion_segura() → true` |
+| **Supercrítico** | $m > 1$ | Puede **sobrevivir** | $q < 1$ | `es_extincion_segura() → false` |
 
 **Interpretación:** Si en promedio cada portador tiene menos de un hijo, el linaje se contrae y desaparece. Solo cuando $m > 1$ hay probabilidad positiva de pervivencia.
 """
 
 # ╔═╡ 00000002-0002-0002-0002-000000000005
 md"""
-### 🎛️ Panel de Control
+### Panel de Control
 
 Elige la distribución de natalidad y sus parámetros:
 """
@@ -157,15 +157,15 @@ begin
 	extincion_segura = es_extincion_segura(modelo) # de markovModels.jl
 	
 	regimen = if m_esperanza < 1.0
-		"🔴 Subcrítico"
+		"Subcrítico"
 	elseif isapprox(m_esperanza, 1.0, atol=0.01)
-		"🟡 Crítico"
+		"Crítico"
 	else
-		"🟢 Supercrítico"
+		"Supercrítico"
 	end
 	
 	md"""
-	### 📊 Análisis del Modelo: $(param_str)
+	### Análisis del Modelo: $(param_str)
 	
 	| Parámetro | Valor |
 	|:--|:--|
@@ -181,7 +181,7 @@ end
 
 # ╔═╡ 00000002-0002-0002-0002-000000000015
 md"""
-### 📉 Distribución de Descendencia $\{p_k\}$
+### Distribución de Descendencia $\{p_k\}$
 
 El vector `modelo.pk` almacena las probabilidades. `pk[1]` = P(0 hijos), `pk[2]` = P(1 hijo), etc.
 """
@@ -210,7 +210,7 @@ end
 
 # ╔═╡ 00000002-0002-0002-0002-000000000017
 md"""
-### 📐 Función Generadora de Probabilidad g(t) — `fgp(modelo, t)`
+### Función Generadora de Probabilidad g(t) — `fgp(modelo, t)`
 
 La FGP es la herramienta con la que `probabilidad_extincion()` calcula $q$:
 - Panel izquierdo: $g(t)$ vs la identidad $y = t$. El punto donde se cruzan (aparte de $t=1$) es $q$.
@@ -251,7 +251,7 @@ end
 
 # ╔═╡ 00000002-0002-0002-0002-000000000019
 md"""
-### 🎲 Trayectorias del Linaje — `simular_generaciones()`
+### Trayectorias del Linaje — `simular_generaciones()`
 
 Cada trayectoria se genera llamando a `simular_generaciones(modelo, gen; poblacion_inicial=Z₀)` de `markovModels.jl`. Las rojas se extinguieron, las verdes sobrevivieron.
 """
@@ -294,14 +294,14 @@ end
 
 # ╔═╡ 00000002-0002-0002-0002-000000000022
 md"""
-**De $(n_traj_slider) trayectorias:** 🔴 $(n_extintas) extintas | 🟢 $(n_vivas) sobreviven
+**De $(n_traj_slider) trayectorias:** $(n_extintas) extintas | $(n_vivas) sobreviven
 
 Probabilidad teórica: **q = $(round(q_extincion, digits=4))** → frecuencia observada: **$(round(n_extintas / n_traj_slider, digits=4))**
 """
 
 # ╔═╡ 00000002-0002-0002-0002-000000000023
 md"""
-### 🎯 Validación Monte Carlo — `frecuencia_extincion()`
+### Validación Monte Carlo — `frecuencia_extincion()`
 
 Comparemos la `probabilidad_extincion()` (teórica, bisección) contra `frecuencia_extincion()` (empírica, Monte Carlo). Ambas funciones están en `markovModels.jl`.
 """
@@ -326,13 +326,13 @@ begin
 	| q teórica | **$(round(q_extincion, digits=6))** | `probabilidad_extincion(modelo)` |
 	| q empírica (n=$(n_mc_slider)) | **$(round(freq_mc, digits=6))** | `frecuencia_extincion(modelo, $(gen_slider))` |
 	| Diferencia | **$(round(diferencia, digits=6))** | |
-	| Concordancia | **$(diferencia < 0.05 ? "✅ Excelente" : (diferencia < 0.1 ? "⚠️ Aceptable" : "❌ Divergente"))** | |
+	| Concordancia | **$(diferencia < 0.05 ? "Excelente" : (diferencia < 0.1 ? "Aceptable" : "Divergente"))** | |
 	"""
 end
 
 # ╔═╡ 00000002-0002-0002-0002-000000000026
 md"""
-### 🔬 Transición de Fase: Extinción vs. Supervivencia
+### Transición de Fase: Extinción vs. Supervivencia
 
 ¿Cómo cambia $q$ al variar la media $m$? En $m = 1$ ocurre una **transición de fase** abrupta.
 
@@ -374,7 +374,7 @@ end
 
 # ╔═╡ 00000002-0002-0002-0002-000000000028
 md"""
-### 📊 Tabla Resumen para Distintas Tasas de Natalidad
+### Tabla Resumen para Distintas Tasas de Natalidad
 """
 
 # ╔═╡ 00000002-0002-0002-0002-000000000029
@@ -387,7 +387,7 @@ begin
 		mod_t = ModeloPBGW(lam; max_hijos=20)
 		m_t = esperanza(mod_t)
 		q_t = probabilidad_extincion(mod_t)
-		reg_t = m_t < 1.0 ? "🔴 Subcrítico" : (isapprox(m_t, 1.0, atol=0.01) ? "🟡 Crítico" : "🟢 Supercrítico")
+		reg_t = m_t < 1.0 ? "Subcrítico" : (isapprox(m_t, 1.0, atol=0.01) ? "Crítico" : "Supercrítico")
 		push!(lineas_tabla, "| $(lam) | $(reg_t) | $(round(q_t, digits=4)) | $(round(1-q_t, digits=4)) |")
 	end
 	Markdown.parse(join(lineas_tabla, "\n"))
@@ -395,7 +395,7 @@ end
 
 # ╔═╡ 00000002-0002-0002-0002-000000000030
 md"""
-### 🧮 Probabilidad de Absorción con Z₀ > 1
+### Probabilidad de Absorción con Z₀ > 1
 
 Cuando el linaje empieza con $Z_0 > 1$ portadores, cada uno genera un sublinaje **independiente**. Todos deben extinguirse para que el apellido desaparezca:
 
@@ -427,7 +427,7 @@ end
 
 # ╔═╡ 00000002-0002-0002-0002-000000000032
 md"""
-### 📝 Resumen y Conclusiones
+### Resumen y Conclusiones
 
 **Funciones del proyecto utilizadas en este notebook:**
 

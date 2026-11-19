@@ -14,7 +14,11 @@ El proyecto está escrito en [Julia](https://julialang.org/).
 - Simula la evolución de linajes generación a generación.
 - Contrasta el resultado teórico contra una estimación Monte Carlo.
 
-La teoría completa está en [`docs/justificacion-teorica.md`](docs/justificacion-teorica.md).
+La teoría del proceso de ramificación está en
+[`docs/justificacion-teorica.md`](docs/justificacion-teorica.md). El modelo por
+parejas sobre el grafo de apellidos (reglas, modos de probabilidad, criterio de
+parada y catálogo de experimentos) está en
+[`docs/modelo-parejas.md`](docs/modelo-parejas.md).
 
 ## Estructura
 
@@ -25,20 +29,21 @@ La teoría completa está en [`docs/justificacion-teorica.md`](docs/justificacio
 ├── README.md
 ├── docs/
 │   ├── justificacion-teorica.md   # Modelo matemático y su mapeo al código
-│   └── modelo-estacionario.md     # Modelo de población constante (fijación)
+│   └── modelo-parejas.md          # Modelo por parejas: reglas, parada y experimentos
 ├── src/
 │   ├── numericalMethods.jl   # biseccion, newton, secante
 │   ├── markovModels.jl       # ModeloPBGW y cálculo/simulación de extinción
-│   ├── graphModel.jl         # Motor del modelo estacionario como grafo dirigido
-│   └── stacional-model.jl    # Modelo estacionario (grafo dirigido, población constante)
+│   ├── modeloParejas.jl      # Motor del modelo por parejas (modelo vigente)
+│   ├── graphTopologies.jl    # Generadores de topologías del grafo de apellidos
+│   ├── experimentos.jl       # Métricas y runner de experimentos del modelo por parejas
+│   └── visualizacion.jl      # Utilidades de graficación (grafo, conteos, diversidad)
 ├── scripts/
 │   ├── pluto.jl                  # Lanzador multiplataforma de los notebooks Pluto
 │   ├── run_simulation.jl         # Simulación inicial de demostración
-│   └── run_stacional_model.jl    # Ejecuta el modelo estacionario
+│   └── experimentos_parejas.jl   # Catálogo reproducible: escribe PNG + CSV en output/
 └── test/
     ├── runtests.jl           # Tests de los métodos numéricos
     ├── test_markov.jl        # Tests del modelo de Markov / simulación
-    ├── test_grafo.jl         # Tests del modelo estacionario (grafo dirigido)
     └── benchmarks.jl         # Benchmark de los métodos numéricos
 ```
 
@@ -113,12 +118,11 @@ Objetivos principales:
 | `make instantiate` | Instala y precompila las dependencias (solo una vez)      |
 | `make pluto`       | Lanza el servidor Pluto (eliges el notebook en el navegador) |
 | `make bgw`         | Abre el notebook del modelo Bienaymé–Galton–Watson        |
-| `make wf`          | Abre el notebook del modelo Wright–Fisher                 |
+| `make parejas`     | Abre el notebook del modelo por parejas                   |
+| `make experimentos`| Corre el catálogo de experimentos por parejas (PNG + CSV en `output/`) |
 | `make simulation`  | Ejecuta la simulación de demostración                     |
-| `make stacional`   | Ejecuta el modelo estacionario (grafo dirigido)           |
 | `make test`        | Tests de los métodos numéricos                            |
 | `make test-markov` | Tests del modelo de Markov / simulación                   |
-| `make test-grafo`  | Tests del modelo estacionario                             |
 | `make bench`       | Benchmark de los métodos numéricos                        |
 
 El `Makefile` usa el `julia` de tu `PATH`. Si lo tienes instalado en otra ruta
@@ -146,8 +150,50 @@ Abrir directamente un notebook concreto:
 
 ```bash
 julia --project=. scripts/pluto.jl bgw    # Bienaymé–Galton–Watson  (make bgw)
-julia --project=. scripts/pluto.jl wf     # Wright–Fisher           (make wf)
+julia --project=. scripts/pluto.jl parejas # Modelo por parejas      (make parejas)
 ```
+
+El modelo por parejas está documentado en
+[`docs/modelo-parejas.md`](docs/modelo-parejas.md).
+
+## Catálogo reproducible de experimentos (sin Pluto)
+
+Para resultados citables sin abrir Pluto, `scripts/experimentos_parejas.jl` corre
+un catálogo fijo de experimentos (completo, Romeo y Julieta, cadena con puente,
+estrella, anillo, grid, bipartito, tripartito y componentes) con semillas fijas y
+escribe a disco en `output/`:
+
+- Un **PNG** del grafo inicial, del conteo por apellido, de la diversidad y de la
+  distribución de supervivientes, por cada experimento.
+- Un **CSV** (`output/resumen_experimentos.csv`) con el resumen agregado de las
+  repeticiones: probabilidad de absorción, nº medio de supervivientes,
+  probabilidad de ganar por apellido, probabilidad de que el puente muera primero
+  y mutaciones medias.
+
+```bash
+julia --project=. scripts/experimentos_parejas.jl   # o: make experimentos
+```
+
+Usa solo `DelimitedFiles` (librería estándar), sin dependencias nuevas. Se
+parametriza por variables de entorno (con valores por defecto reproducibles):
+
+| Variable | Qué controla | Default |
+| --- | --- | --- |
+| `EXP_N_REPS` | repeticiones por experimento | `200` |
+| `EXP_PAREJAS` | parejas por apellido en el estado inicial | `3` |
+| `EXP_SEMILLA_BASE` | semilla base de las repeticiones | `1` |
+| `EXP_MAX_GEN` | tope de generaciones por corrida | `1000` |
+| `EXP_SEMILLA_FIG` | semilla de la corrida de ejemplo (figuras) | `7` |
+| `EXP_OUTDIR` | carpeta de salida | `output` |
+
+Ejemplo con otra configuración:
+
+```bash
+EXP_N_REPS=500 EXP_PAREJAS=5 julia --project=. scripts/experimentos_parejas.jl
+```
+
+La carpeta `output/` está en `.gitignore`: es salida generada, se regenera con el
+script.
 
 ## Inicializar el proyecto
 
@@ -188,12 +234,6 @@ Tests del modelo de Markov y la simulación de extinción:
 julia --project=. test/test_markov.jl
 ```
 
-Tests del modelo estacionario (grafo dirigido / fijación):
-
-```powershell
-julia --project=. test/test_grafo.jl
-```
-
 El segundo imprime el progreso en vivo (bloques `1/7`, `2/7`, ...) con marcas de
 tiempo, para que puedas ver que está avanzando. La primera ejecución tarda más
 porque Julia precompila las dependencias; las siguientes son más rápidas.
@@ -218,36 +258,6 @@ Muestra, para un modelo de natalidad alta y otro de natalidad baja:
 - Trayectorias de ejemplo de linajes individuales.
 - Una validación Monte Carlo que compara la frecuencia de extinción simulada
   contra la `q` teórica.
-
-## Ejecutar el modelo estacionario (grafo dirigido)
-
-Este modelo mantiene el tamaño de la población fijo y lo representa como un
-**grafo dirigido**: cada vértice es un apellido con su conteo de personas, y
-cada arista dirigida `i → j` lleva la probabilidad de que una persona de
-apellido `i` se reproduzca con una de apellido `j`. Por defecto esas
-probabilidades son proporcionales a los conteos y las salientes de cada vértice
-suman 1. El proceso simula la deriva hacia la **fijación** de un único apellido.
-Teoría, fórmulas y API en
-[`docs/modelo-estacionario.md`](docs/modelo-estacionario.md).
-
-```powershell
-julia --project=. scripts/run_stacional_model.jl
-```
-
-Puedes configurar la ejecución con variables de entorno (tienen prioridad):
-
-```bash
-SEMILLA=7 POBLACION_INICIAL="1,1,2,2,3,3" MAX_GENERACIONES=100 \
-    julia --project=. scripts/run_stacional_model.jl
-```
-
-Variables reconocidas:
-
-- `POBLACION_INICIAL`: ids de apellido separados por comas (p.ej. `1,1,2,2,3,3`).
-  Por defecto `1,1,2,2,3,3,4,4`.
-- `MAX_GENERACIONES`: tope de generaciones de seguridad. Por defecto `100`.
-- `SEMILLA`: entero para reproducibilidad, o `nothing` para azar. Por defecto
-  aleatoria. Con la misma semilla, dos ejecuciones dan el mismo historial.
 
 ## Benchmark
 
