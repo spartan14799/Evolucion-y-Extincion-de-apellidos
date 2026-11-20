@@ -498,7 +498,7 @@ begin
 	
 	# Tabla comparativa resaltando el apellido activo
 	filas_tabla = [
-		"| Puesto | Apellido | Portadores DANE 2018 ($Z_0$) | Estado en Simulación |",
+		"| Puesto | Apellido | Portadores DANE 2018 (\$Z_0\$) | Estado en Simulación |",
 		"|:---|:---|:---|:---|"
 	]
 	for (idx, (ap, cnt)) in enumerate(zip(apellidos_colombia, conteos_dane))
@@ -557,29 +557,50 @@ begin
 		return (extinto = (trayectoria[end] == 0), gen_ext = gen_ext, trayectoria = trayectoria)
 	end
 
-	rng_mc_col = MersenneTwister(semilla_col_slider)
-	
-	max_gen_sim = max(gen_eval_slider + 15, 45)
-	tiempos_ext = Int[]
-	trayectorias_muestra = Vector{Vector{Int}}()
-	extintos_en_X = 0
-	
-	for s in 1:n_sims_col_slider
-		res = simular_extincion_colombia(lambda_col_slider, z0_seleccionado, max_gen_sim, rng_mc_col)
-		if s <= 6
-			push!(trayectorias_muestra, res.trayectoria)
+	# Encapsulado en función para garantizar ámbito local estricto y evitar errores de soft-scope
+	function correr_montecarlo_colombia(lambda, z0, n_sims, gen_eval, semilla)
+		rng = MersenneTwister(semilla)
+		max_gen_sim = max(gen_eval + 15, 45)
+		tiempos_ext = Int[]
+		trayectorias_muestra = Vector{Vector{Int}}()
+		extintos_en_X = 0
+		
+		for s in 1:n_sims
+			res = simular_extincion_colombia(lambda, z0, max_gen_sim, rng)
+			if s <= 6
+				push!(trayectorias_muestra, res.trayectoria)
+			end
+			if res.gen_ext <= max_gen_sim
+				push!(tiempos_ext, res.gen_ext)
+			end
+			if res.gen_ext <= gen_eval
+				extintos_en_X += 1
+			end
 		end
-		if res.gen_ext <= max_gen_sim
-			push!(tiempos_ext, res.gen_ext)
-		end
-		if res.gen_ext <= gen_eval_slider
-			extintos_en_X += 1
-		end
+		
+		prob_ext_X = extintos_en_X / n_sims
+		mediana_ext = isempty(tiempos_ext) ? 0 : round(Int, median(tiempos_ext))
+		media_ext = isempty(tiempos_ext) ? 0.0 : mean(tiempos_ext)
+		
+		return (
+			tiempos_ext = tiempos_ext,
+			trayectorias_muestra = trayectorias_muestra,
+			extintos_en_X = extintos_en_X,
+			prob_ext_X = prob_ext_X,
+			mediana_ext = mediana_ext,
+			media_ext = media_ext,
+			max_gen_sim = max_gen_sim
+		)
 	end
-	
-	prob_ext_X = extintos_en_X / n_sims_col_slider
-	mediana_ext = isempty(tiempos_ext) ? 0 : round(Int, median(tiempos_ext))
-	media_ext = isempty(tiempos_ext) ? 0.0 : mean(tiempos_ext)
+
+	res_sim_col = correr_montecarlo_colombia(lambda_col_slider, z0_seleccionado, n_sims_col_slider, gen_eval_slider, semilla_col_slider)
+	tiempos_ext = res_sim_col.tiempos_ext
+	trayectorias_muestra = res_sim_col.trayectorias_muestra
+	extintos_en_X = res_sim_col.extintos_en_X
+	prob_ext_X = res_sim_col.prob_ext_X
+	mediana_ext = res_sim_col.mediana_ext
+	media_ext = res_sim_col.media_ext
+	max_gen_sim = res_sim_col.max_gen_sim
 	
 	# Estimación teórica continua aproximada: T ≈ ln(Z0) / ln(1/lambda)
 	t_teorico = lambda_col_slider < 1.0 ? log(z0_seleccionado) / log(1.0 / lambda_col_slider) : Inf
@@ -644,31 +665,42 @@ end
 
 # ╔═╡ 00000002-0002-0002-0002-000000000051
 begin
-	# Comparativa de los 10 apellidos
-	tiempos_medios_10 = Float64[]
-	rng_comp = MersenneTwister(123)
-	for cnt in conteos_dane
-		tiempos_i = Int[]
-		for _ in 1:250
-			res_i = simular_extincion_colombia(lambda_col_slider, cnt, 45, rng_comp)
-			push!(tiempos_i, res_i.gen_ext)
+	# Comparativa de los 10 apellidos (encapsulada en función para ámbito local)
+	function calcular_medianas_10(lambda)
+		tiempos_medios = Float64[]
+		rng_comp = MersenneTwister(123)
+		for cnt in conteos_dane
+			tiempos_i = Int[]
+			for _ in 1:200
+				res_i = simular_extincion_colombia(lambda, cnt, 45, rng_comp)
+				push!(tiempos_i, res_i.gen_ext)
+			end
+			push!(tiempos_medios, median(tiempos_i))
 		end
-		push!(tiempos_medios_10, median(tiempos_i))
+		return tiempos_medios
 	end
-	
+
+	tiempos_medios_10 = calcular_medianas_10(lambda_col_slider)
 	colores_barras = [ap == ap_col_select ? "#e53935" : "#1e88e5" for ap in apellidos_colombia]
 	
+	# Orden inverso para que Rodríguez (Puesto 1) aparezca arriba y se lean bien los nombres
+	indices_bar = 1:10
+	aps_rev = reverse(apellidos_colombia)
+	tiempos_rev = reverse(tiempos_medios_10)
+	colores_rev = reverse(colores_barras)
+
 	p_comp = bar(
-		apellidos_colombia, tiempos_medios_10,
+		indices_bar, tiempos_rev,
 		orientation = :horizontal,
+		yticks = (indices_bar, aps_rev),
 		xlabel = "Generaciones estimadas hasta extinción",
 		ylabel = "Apellido",
 		title = "¿Cuánto tarda en extinguirse cada apellido? (λ = $(lambda_col_slider))",
-		color = colores_barras, alpha = 0.85, legend = false,
-		size = (800, 420), xlims = (0, maximum(tiempos_medios_10) * 1.25)
+		color = colores_rev, alpha = 0.85, legend = false,
+		size = (800, 420), xlims = (0, maximum(tiempos_medios_10) * 1.35)
 	)
 	
-	for (idx, (ap, t_med)) in enumerate(zip(apellidos_colombia, tiempos_medios_10))
+	for (idx, t_med) in enumerate(tiempos_rev)
 		annotate!(p_comp, t_med + 0.4, idx, text("Gen $(round(Int, t_med)) (~$(round(Int, t_med*28)) años)", 8, :left, :black, Sys.iswindows() ? "arialbd" : "sans-serif"))
 	end
 	p_comp
@@ -768,6 +800,104 @@ md"""
 - **Filas $i > 0$:** La probabilidad de pasar de $i$ personas a $j$ personas en la siguiente generación. 
 - **Sesgo hacia la izquierda:** Como $\lambda = 0.5 < 1.0$, los valores más altos se acumulan a la izquierda de la diagonal (hacia números menores), empujando sistemáticamente la distribución hacia el estado 0.
 """
+
+# ╔═╡ 00000002-0002-0002-0002-000000000072
+md"""
+### 🎨 Diagrama de Estados de la Cadena (Grafo Visual de Transición)
+
+En un editor o simulador de Cadenas de Markov (como se diseña en teoría de autómatas o teoría de grafos), el proceso se visualiza como una **red dirigida**:
+- **Nodos:** Representan los estados de la cadena (cantidad de portadores vivos). El estado **0** (rojo) es el pozo absorbente.
+- **Flechas dirigidas:** Representan los saltos de transición en un paso (una generación), con su probabilidad $P_{ij}$.
+- **Flechas inferiores rojas:** El camino de **decaimiento hacia la extinción** ($i \to j$ con $j < i$). Observa cómo son las más gruesas en régimen subcrítico ($\lambda = 0.5$).
+- **Flechas superiores azules:** El camino de **crecimiento del linaje** ($i \to j$ con $j > i$).
+- **Autolazo en 0:** Tiene probabilidad $1.00$ ($P_{0,0} = 1$). Si caes aquí, no hay flecha de salida.
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000073
+begin
+	# Modelo de juguete para visualización de grafo: Estados 0, 1, 2, 3+
+	M_toy = 3
+	P_toy = zeros(Float64, M_toy + 1, M_toy + 1)
+	P_toy[1, 1] = 1.0
+	for i in 1:M_toy
+		pois = Poisson(i * lambda_col_slider)
+		for j in 0:(M_toy - 1)
+			P_toy[i + 1, j + 1] = pdf(pois, j)
+		end
+		P_toy[i + 1, M_toy + 1] = max(0.0, 1.0 - sum(P_toy[i + 1, 1:M_toy]))
+	end
+	
+	xs_toy = [0.0, 3.2, 6.4, 9.6]
+	ys_toy = [0.0, 0.0, 0.0, 0.0]
+	nombres_toy = ["0\n(Extinto)", "1", "2", "3+"]
+	colores_nodos = ["#e53935", "#1e88e5", "#1e88e5", "#8e24aa"]
+	
+	p_diag_markov = plot(
+		size = (850, 420),
+		xlims = (-1.5, 11.2), ylims = (-3.2, 3.4),
+		aspect_ratio = :equal,
+		title = "Grafo Dirigido de Transiciones de Estados (Ejemplo de Juguete M=3, λ = $(@sprintf("%.2f", lambda_col_slider)))",
+		legend = false, grid = false, framestyle = :none
+	)
+	
+	for i in 0:M_toy
+		for j in 0:M_toy
+			prob = P_toy[i + 1, j + 1]
+			if prob > 0.025
+				x_i, y_i = xs_toy[i + 1], ys_toy[i + 1]
+				x_j, y_j = xs_toy[j + 1], ys_toy[j + 1]
+				
+				if i == j
+					# Autolazo (bucle superior)
+					theta = range(0, 2π, length=40)
+					r_loop = 0.55
+					cx = x_i
+					cy = y_i + 0.95
+					plot!(p_diag_markov, cx .+ r_loop .* cos.(theta), cy .+ r_loop .* sin.(theta),
+					      color = i == 0 ? :red : :gray, lw = i == 0 ? 2.5 : 1.5, alpha = 0.75)
+					annotate!(p_diag_markov, cx, cy + r_loop + 0.28,
+					          text(@sprintf("%.2f", prob), 8, :center, i == 0 ? :red : :black, Sys.iswindows() ? "arialbd" : "sans-serif"))
+				elseif j > i
+					# Transición hacia arriba (arco azul superior)
+					dist = abs(x_j - x_i)
+					h = 0.42 * dist
+					ts = range(0, 1, length=30)
+					arc_x = (1 .- ts) .* x_i .+ ts .* x_j
+					arc_y = 4 .* h .* ts .* (1 .- ts)
+					plot!(p_diag_markov, arc_x, arc_y, color = "#1e88e5", lw = 1.0 + 3.0 * prob, alpha = 0.7)
+					mid_x = (x_i + x_j) / 2
+					mid_y = h
+					annotate!(p_diag_markov, mid_x, mid_y + 0.25,
+					          text(@sprintf("%.2f", prob), 8, :center, "#1565c0", Sys.iswindows() ? "arialbd" : "sans-serif"))
+				else
+					# Transición hacia abajo/extinción (arco rojo/naranja inferior)
+					dist = abs(x_i - x_j)
+					h = -0.42 * dist
+					ts = range(0, 1, length=30)
+					arc_x = (1 .- ts) .* x_i .+ ts .* x_j
+					arc_y = 4 .* h .* ts .* (1 .- ts)
+					plot!(p_diag_markov, arc_x, arc_y, color = j == 0 ? "#e53935" : "#e65100", lw = 1.0 + 3.5 * prob, alpha = 0.75)
+					mid_x = (x_i + x_j) / 2
+					mid_y = h
+					annotate!(p_diag_markov, mid_x, mid_y - 0.25,
+					          text(@sprintf("%.2f", prob), 8, :center, j == 0 ? "#c62828" : "#bf360c", Sys.iswindows() ? "arialbd" : "sans-serif"))
+				end
+			end
+		end
+	end
+	
+	# Dibujar los nodos con círculos gruesos y nombre
+	for idx in 1:(M_toy + 1)
+		scatter!(p_diag_markov, [xs_toy[idx]], [ys_toy[idx]],
+		         markersize = 28, color = :white,
+		         markerstrokecolor = colores_nodos[idx],
+		         markerstrokewidth = 3.5)
+		annotate!(p_diag_markov, xs_toy[idx], ys_toy[idx],
+		          text(nombres_toy[idx], 9, :center, :black, Sys.iswindows() ? "arialbd" : "sans-serif"))
+	end
+	
+	p_diag_markov
+end
 
 # ╔═╡ 00000002-0002-0002-0002-000000000066
 md"**Paso de tiempo / Generación ($n$) para el vector de estado $\boldsymbol{\pi}_n$:** $(@bind gen_pi_slider Slider(0:1:25, default=3, show_value=true))"
@@ -941,6 +1071,8 @@ Imagina la cadena de Markov de Galton-Watson como un **juego de mesa con un tobo
 # ╟─00000002-0002-0002-0002-000000000063
 # ╟─00000002-0002-0002-0002-000000000064
 # ╟─00000002-0002-0002-0002-000000000065
+# ╟─00000002-0002-0002-0002-000000000072
+# ╟─00000002-0002-0002-0002-000000000073
 # ╟─00000002-0002-0002-0002-000000000066
 # ╟─00000002-0002-0002-0002-000000000067
 # ╟─00000002-0002-0002-0002-000000000068
