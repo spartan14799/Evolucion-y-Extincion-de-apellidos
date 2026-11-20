@@ -480,7 +480,7 @@ md"**Tasa de natalidad masculina $\lambda$** (hijos varones promedio por hombre)
 md"**Evaluar probabilidad de extinción acumulada a las generaciones ($X$):** $(@bind gen_eval_slider Slider(5:1:40, default=20, show_value=true))"
 
 # ╔═╡ 00000002-0002-0002-0002-000000000044
-md"**Simulaciones Monte Carlo:** $(@bind n_sims_col_slider Slider(100:100:2000, default=500, show_value=true))"
+md"**Simulaciones Monte Carlo:** $(@bind n_sims_col_slider Slider(50:25:500, default=100, show_value=true))"
 
 # ╔═╡ 00000002-0002-0002-0002-000000000045
 md"**Semilla aleatoria:** $(@bind semilla_col_slider Slider(1:100, default=42, show_value=true))"
@@ -496,13 +496,16 @@ begin
 	
 	z0_seleccionado = dane_dict[ap_col_select]
 	
-	# Tabla comparativa resaltando el apellido activo
+	# Instanciamos el modelo de Bienaymé-Galton-Watson llamando a ModeloPBGW de src/markovModels.jl
+	modelo_colombia = ModeloPBGW(lambda_col_slider; max_hijos = 15)
+	
+	# Tabla comparativa resaltando el apellido activo (sin emojis)
 	filas_tabla = [
 		"| Puesto | Apellido | Portadores DANE 2018 (\$Z_0\$) | Estado en Simulación |",
 		"|:---|:---|:---|:---|"
 	]
 	for (idx, (ap, cnt)) in enumerate(zip(apellidos_colombia, conteos_dane))
-		marca = ap == ap_col_select ? "**👉 SELECCIONADO**" : "En espera"
+		marca = ap == ap_col_select ? "**SELECCIONADO**" : "En espera"
 		ap_fmt = ap == ap_col_select ? "**$ap**" : ap
 		push!(filas_tabla, "| $idx | $ap_fmt | $(cnt) | $marca |")
 	end
@@ -511,70 +514,50 @@ end
 
 # ╔═╡ 00000002-0002-0002-0002-000000000047
 md"""
-### ⚙️ Trucos Numéricos y Tipo de Monte Carlo Utilizado
+### Trucos Numéricos y Tipo de Monte Carlo Utilizado
 
-#### 1. El Truco Numérico Aditivo de Poisson ($O(1)$ vs $O(N)$)
-En una implementación ingenua de Galton-Watson, para una generación con $Z_n = 754.991$ individuos, tendríamos que generar 754.991 números aleatorios en cada generación. Con 30 generaciones y 500 simulaciones, ¡eso requeriría generar más de **11 mil millones de variables aleatorias**, desbordando la memoria RAM y tardando horas!
-
-**El truco matemático en Julia:**
-Aprovechamos la **propiedad reproductiva de la distribución de Poisson**: si $X_1, X_2, \ldots, X_{Z_n} \stackrel{iid}{\sim} \text{Poisson}(\lambda)$, entonces su suma exacta es:
-$$\sum_{i=1}^{Z_n} X_i \sim \text{Poisson}(Z_n \cdot \lambda)$$
-Por lo tanto, en Julia podemos simular la generación completa en **una sola llamada $O(1)$**:
+#### 1. Implementación Canónica del Código Fuente vs. Propiedad Reproductiva de Poisson
+En el código fuente (`src/markovModels.jl`), la función `simular_generaciones` itera individuo por individuo sorteando su descendencia a través de la distribución categórica discreta `Categorical(modelo.pk)`:
 ```julia
-z = rand(rng, Poisson(z * lambda))
+# Enfoque canónico del código fuente (src/markovModels.jl):
+for _ in 1:poblacion
+    hijos_totales += rand(rng, dist_hijos) - 1
+end
 ```
-Esto reduce el tiempo de cómputo de horas a **milisegundos**, permitiendo correr 2.000 simulaciones completas en tiempo real.
+**El truco matemático para optimización analítica:**
+Cuando la descendencia individual sigue una distribución de Poisson con media $\lambda$ ($X_i \stackrel{iid}{\sim} \text{Poisson}(\lambda)$), aprovechamos la **propiedad reproductiva de Poisson**: la suma de variables Poisson independientes es idéntica en distribución a una Poisson con la suma de las medias:
+$$\sum_{i=1}^{Z_n} X_i \sim \text{Poisson}(Z_n \cdot \lambda)$$
+Esto permite que para poblaciones grandes como las del Censo DANE ($Z_0 \approx 750.000$), la distribución exacta pueda generarse tanto sumando los individuos como evaluando directamente en tiempo $O(1)$. Ambas formulaciones son matemáticamente equivalentes y convergen a los mismos estimadores estadísticos.
 
 #### 2. ¿Qué tipo de Monte Carlo usamos? (Forward MC vs MCMC)
-- **Monte Carlo Directo / Hacia Adelante (Forward Monte Carlo):** Es el que utilizamos aquí. Muestreamos realizaciones estocásticas directas del proceso temporal $\{Z_n\}_{n \ge 0}$ a lo largo de las generaciones.
+- **Monte Carlo Directo / Hacia Adelante (Forward Monte Carlo):** Es el método empleado en este módulo. Simulamos realizaciones estocásticas directas del proceso temporal $\{Z_n\}_{n \ge 0}$ a lo largo de las generaciones hacia el futuro partiendo del estado conocido $Z_0$.
 - **¿Por qué NO usamos MCMC (Markov Chain Monte Carlo - Metropolis/Gibbs)?**
-  MCMC se usa cuando queremos muestrear de una distribución de probabilidad estacionaria o a posteriori muy difícil de calcular de forma analítica, creando una cadena artificial que converge a ella. En Galton-Watson subcrítico, el proceso es **transitorio y absorbente** (termina en 0), por lo que lo que nos interesa es la **dinámica temporal de decaimiento**, la cual se modela naturalmente con simulación directa hacia adelante (Forward MC).
+  MCMC se utiliza para muestrear de una distribución estacionaria $\pi$ compleja o una distribución a posteriori bayesiana. En un proceso de ramificación subcrítico ($\lambda < 1$), los estados $\{1, 2, \dots\}$ son **transitorios** y el único estado recurrente es el $0$ (absorbente). No hay una distribución estacionaria no nula; el interés radica en la **trayectoria dinámica de extinción**, la cual se modela mediante Forward Monte Carlo con `simular_generaciones` de `src/markovModels.jl`.
 """
 
 # ╔═╡ 00000002-0002-0002-0002-000000000048
 begin
-	# Función optimizada con el truco numérico aditivo
-	function simular_extincion_colombia(lambda, z0, max_gen, rng)
-		z = z0
-		gen_ext = max_gen + 1
-		trayectoria = Int[z0]
-		
-		for g in 1:max_gen
-			if z == 0
-				push!(trayectoria, 0)
-				if gen_ext > max_gen
-					gen_ext = g - 1
-				end
-				continue
-			end
-			# Propiedad aditiva de Poisson O(1)
-			z = rand(rng, Poisson(z * lambda))
-			push!(trayectoria, z)
-			if z == 0 && gen_ext > max_gen
-				gen_ext = g
-			end
-		end
-		return (extinto = (trayectoria[end] == 0), gen_ext = gen_ext, trayectoria = trayectoria)
-	end
-
-	# Encapsulado en función para garantizar ámbito local estricto y evitar errores de soft-scope
-	function correr_montecarlo_colombia(lambda, z0, n_sims, gen_eval, semilla)
+	# Simulación Monte Carlo llamando directamente a las funciones de src/markovModels.jl
+	function correr_montecarlo_colombia(modelo::ModeloPBGW, z0::Int, n_sims::Int, gen_eval::Int, semilla::Int)
 		rng = MersenneTwister(semilla)
-		max_gen_sim = max(gen_eval + 15, 45)
+		max_gen_sim = max(gen_eval + 15, 35)
 		tiempos_ext = Int[]
 		trayectorias_muestra = Vector{Vector{Int}}()
 		extintos_en_X = 0
 		
 		for s in 1:n_sims
-			res = simular_extincion_colombia(lambda, z0, max_gen_sim, rng)
+			# Llamada directa al método fuente simular_generaciones
+			traj = simular_generaciones(modelo, max_gen_sim; poblacion_inicial = z0, rng = rng)
 			if s <= 6
-				push!(trayectorias_muestra, res.trayectoria)
+				push!(trayectorias_muestra, copy(traj))
 			end
-			if res.gen_ext <= max_gen_sim
-				push!(tiempos_ext, res.gen_ext)
-			end
-			if res.gen_ext <= gen_eval
-				extintos_en_X += 1
+			idx_cero = findfirst(==(0), traj)
+			if idx_cero !== nothing
+				gen_ext = idx_cero - 1
+				push!(tiempos_ext, gen_ext)
+				if gen_ext <= gen_eval
+					extintos_en_X += 1
+				end
 			end
 		end
 		
@@ -593,7 +576,7 @@ begin
 		)
 	end
 
-	res_sim_col = correr_montecarlo_colombia(lambda_col_slider, z0_seleccionado, n_sims_col_slider, gen_eval_slider, semilla_col_slider)
+	res_sim_col = correr_montecarlo_colombia(modelo_colombia, z0_seleccionado, n_sims_col_slider, gen_eval_slider, semilla_col_slider)
 	tiempos_ext = res_sim_col.tiempos_ext
 	trayectorias_muestra = res_sim_col.trayectorias_muestra
 	extintos_en_X = res_sim_col.extintos_en_X
@@ -602,20 +585,27 @@ begin
 	media_ext = res_sim_col.media_ext
 	max_gen_sim = res_sim_col.max_gen_sim
 	
-	# Estimación teórica continua aproximada: T ≈ ln(Z0) / ln(1/lambda)
-	t_teorico = lambda_col_slider < 1.0 ? log(z0_seleccionado) / log(1.0 / lambda_col_slider) : Inf
+	# Validación teórica llamando directamente a src/markovModels.jl
+	m_esp = esperanza(modelo_colombia)
+	es_segura = es_extincion_segura(modelo_colombia)
+	q_teorico = probabilidad_extincion(modelo_colombia)
+	
+	# Estimación teórica continua aproximada: T ≈ ln(Z0) / ln(1/m)
+	t_teorico = m_esp < 1.0 ? log(z0_seleccionado) / log(1.0 / m_esp) : Inf
 	
 	md"""
-	### 📊 Resultados del Monte Carlo para **$(ap_col_select)**
+	### Resultados del Monte Carlo para **$(ap_col_select)**
 	
-	| Métrica | Valor Estimado | Significado |
+	| Métrica | Valor Estimado | Significado y Validación Teórica (markovModels.jl) |
 	|:---|:---|:---|
 	| **Población Inicial ($Z_0$)** | **$(z0_seleccionado)** | Portadores según Censo DANE 2018 |
-	| **Tasa de natalidad masculina ($\lambda$)** | **$(lambda_col_slider)** | $(lambda_col_slider < 1.0 ? "🔴 Subcrítico (Extinción inevitable)" : (lambda_col_slider == 1.0 ? "🟡 Crítico" : "🟢 Supercrítico")) |
-	| **Probabilidad de extinción en $\le $(gen_eval_slider) generaciones** | <span style="font-size:1.3em; font-weight:bold; color:$(prob_ext_X > 0.5 ? "crimson" : "steelblue");">$(round(prob_ext_X * 100, digits=2))%</span> | Fracción de simulaciones extintas en Gen $(gen_eval_slider) |
-	| **Generación Mediana de Extinción** | **Gen $(mediana_ext)** (~$(mediana_ext * 28) años) | El 50% de las historias se extinguieron antes de este año |
+	| **Esperanza de descendencia ($m = E[X]$)** | **$(round(m_esp, digits=3))** | Evaluado con `esperanza(modelo)` |
+	| **Régimen del Proceso** | **$(es_segura ? "Subcrítico / Crítico (m ≤ 1.0)" : "Supercrítico (m > 1.0)")** | Evaluado con `es_extincion_segura(modelo)` |
+	| **Probabilidad teórica asintótica ($q$)** | **$(round(q_teorico * 100, digits=2))%** | Calculado con `probabilidad_extincion(modelo)` |
+	| **Probabilidad de extinción en $\le $(gen_eval_slider) generaciones** | <span style="font-size:1.3em; font-weight:bold; color:$(prob_ext_X > 0.5 ? "crimson" : "steelblue");">$(round(prob_ext_X * 100, digits=2))%</span> | Fracción observada en Monte Carlo con `simular_generaciones` |
+	| **Generación Mediana de Extinción** | **Gen $(mediana_ext)** (~$(mediana_ext * 28) años) | El 50% de las realizaciones estocásticas se extinguieron antes de este año |
 	| **Generación Media de Extinción** | **Gen $(round(media_ext, digits=1))** | Promedio aritmético de las simulaciones |
-	| **Aproximación Teórica Determinista** | **Gen $(round(t_teorico, digits=1))** | Fórmula: $T \approx \frac{\ln(Z_0)}{\ln(1/\lambda)}$ |
+	| **Aproximación Teórica Determinista** | **Gen $(round(t_teorico, digits=1))** | Fórmula de decaimiento geométrico: $T \approx \frac{\ln(Z_0)}{\ln(1/m)}$ |
 	"""
 end
 
@@ -665,22 +655,23 @@ end
 
 # ╔═╡ 00000002-0002-0002-0002-000000000051
 begin
-	# Comparativa de los 10 apellidos (encapsulada en función para ámbito local)
-	function calcular_medianas_10(lambda)
+	# Comparativa de los 10 apellidos llamando directamente a simular_generaciones de src/markovModels.jl
+	function calcular_medianas_10(modelo::ModeloPBGW)
 		tiempos_medios = Float64[]
 		rng_comp = MersenneTwister(123)
 		for cnt in conteos_dane
 			tiempos_i = Int[]
-			for _ in 1:200
-				res_i = simular_extincion_colombia(lambda, cnt, 45, rng_comp)
-				push!(tiempos_i, res_i.gen_ext)
+			for _ in 1:30
+				traj_i = simular_generaciones(modelo, 35; poblacion_inicial = cnt, rng = rng_comp)
+				idx_0 = findfirst(==(0), traj_i)
+				push!(tiempos_i, idx_0 !== nothing ? idx_0 - 1 : 36)
 			end
 			push!(tiempos_medios, median(tiempos_i))
 		end
 		return tiempos_medios
 	end
 
-	tiempos_medios_10 = calcular_medianas_10(lambda_col_slider)
+	tiempos_medios_10 = calcular_medianas_10(modelo_colombia)
 	colores_barras = [ap == ap_col_select ? "#e53935" : "#1e88e5" for ap in apellidos_colombia]
 	
 	# Orden inverso para que Rodríguez (Puesto 1) aparezca arriba y se lean bien los nombres
@@ -695,7 +686,7 @@ begin
 		yticks = (indices_bar, aps_rev),
 		xlabel = "Generaciones estimadas hasta extinción",
 		ylabel = "Apellido",
-		title = "¿Cuánto tarda en extinguirse cada apellido? (λ = $(lambda_col_slider))",
+		title = "¿Cuánto tarda en extinguirse cada apellido? (λ = $(@sprintf("%.2f", lambda_col_slider)))",
 		color = colores_rev, alpha = 0.85, legend = false,
 		size = (800, 420), xlims = (0, maximum(tiempos_medios_10) * 1.35)
 	)
@@ -730,7 +721,7 @@ En las secciones anteriores hemos analizado las estadísticas globales del model
 
 # ╔═╡ 00000002-0002-0002-0002-000000000061
 md"""
-### 🏷️ 1. Definición del Espacio de Estados
+### 1. Definición del Espacio de Estados
 En el modelo matemático riguroso, el espacio de estados es infinito numerable: $S = \{0, 1, 2, 3, \ldots\}$, donde cada estado representa la cantidad exacta de portadores vivos del apellido.
 
 Para visualizar y calcular la matriz de forma explícita e interactiva, consideramos el **espacio de estados truncado** $S_M = \{0, 1, 2, \ldots, M\}$:
@@ -754,13 +745,14 @@ begin
 	# Fila 0: Estado absorbente
 	P_mat[1, 1] = 1.0
 	
-	# Filas 1 a M: Estados transitorios
+	# Filas 1 a M: Construidas llamando a ModeloPBGW de src/markovModels.jl
 	for i in 1:M_dim
-		pois_i = Poisson(i * lambda_p)
+		# Para i individuos con tasa individual lambda_p, la descendencia total sigue ModeloPBGW(i * lambda_p)
+		m_i = ModeloPBGW(i * lambda_p; max_hijos = M_dim)
 		for j in 0:(M_dim - 1)
-			P_mat[i + 1, j + 1] = pdf(pois_i, j)
+			P_mat[i + 1, j + 1] = m_i.pk[j + 1]
 		end
-		# Todo el remanente de probabilidad va al estado agregado M
+		# Todo el remanente de probabilidad va al estado agregado M+
 		P_mat[i + 1, M_dim + 1] = max(0.0, 1.0 - sum(P_mat[i + 1, 1:M_dim]))
 	end
 	
@@ -795,7 +787,7 @@ end
 
 # ╔═╡ 00000002-0002-0002-0002-000000000065
 md"""
-### 🔍 Interpretación Directa de la Matriz:
+### Interpretación Directa de la Matriz:
 - **Fila 0:** Es $[1.00, 0.00, 0.00, \ldots]$. Representa el **pozo absorbente**: una vez que el apellido llega a 0 portadores, nunca más sale.
 - **Filas $i > 0$:** La probabilidad de pasar de $i$ personas a $j$ personas en la siguiente generación. 
 - **Sesgo hacia la izquierda:** Como $\lambda = 0.5 < 1.0$, los valores más altos se acumulan a la izquierda de la diagonal (hacia números menores), empujando sistemáticamente la distribución hacia el estado 0.
@@ -803,7 +795,7 @@ md"""
 
 # ╔═╡ 00000002-0002-0002-0002-000000000072
 md"""
-### 🎨 Diagrama de Estados de la Cadena (Grafo Visual de Transición)
+### Diagrama de Estados de la Cadena (Grafo Visual de Transición)
 
 En un editor o simulador de Cadenas de Markov (como se diseña en teoría de autómatas o teoría de grafos), el proceso se visualiza como una **red dirigida**:
 - **Nodos:** Representan los estados de la cadena (cantidad de portadores vivos). El estado **0** (rojo) es el pozo absorbente.
@@ -816,13 +808,14 @@ En un editor o simulador de Cadenas de Markov (como se diseña en teoría de aut
 # ╔═╡ 00000002-0002-0002-0002-000000000073
 begin
 	# Modelo de juguete para visualización de grafo: Estados 0, 1, 2, 3+
+	# Construido directamente con ModeloPBGW de src/markovModels.jl
 	M_toy = 3
 	P_toy = zeros(Float64, M_toy + 1, M_toy + 1)
 	P_toy[1, 1] = 1.0
 	for i in 1:M_toy
-		pois = Poisson(i * lambda_col_slider)
+		m_toy_i = ModeloPBGW(i * lambda_col_slider; max_hijos = M_toy)
 		for j in 0:(M_toy - 1)
-			P_toy[i + 1, j + 1] = pdf(pois, j)
+			P_toy[i + 1, j + 1] = m_toy_i.pk[j + 1]
 		end
 		P_toy[i + 1, M_toy + 1] = max(0.0, 1.0 - sum(P_toy[i + 1, 1:M_toy]))
 	end
@@ -833,13 +826,93 @@ begin
 	colores_nodos = ["#e53935", "#1e88e5", "#1e88e5", "#8e24aa"]
 	
 	p_diag_markov = plot(
-		size = (850, 420),
-		xlims = (-1.5, 11.2), ylims = (-3.2, 3.4),
+		size = (880, 430),
+		xlims = (-1.8, 11.4), ylims = (-3.2, 3.4),
 		aspect_ratio = :equal,
-		title = "Grafo Dirigido de Transiciones de Estados (Ejemplo de Juguete M=3, λ = $(@sprintf("%.2f", lambda_col_slider)))",
+		title = "Grafo Dirigido de Transiciones de Estados (Ejemplo M=3, λ = $(@sprintf("%.2f", lambda_col_slider)))",
 		legend = false, grid = false, framestyle = :none
 	)
 	
+	r_nodo = 0.65
+	
+	# Función para dibujar arco con flecha orientada en dirección de transición
+	function dibujar_flecha_curva!(plt, x1, y1, x2, y2, h_curva, col, lw, prob, es_superior)
+		ctrl_x = (x1 + x2) / 2
+		ctrl_y = 2 * h_curva
+		
+		# Punto t_arr donde la curva llega al borde exterior del nodo destino
+		t_arr = 0.86
+		for t_eval in range(0.70, 0.98, length=50)
+			px = (1 - t_eval)^2 * x1 + 2 * (1 - t_eval) * t_eval * ctrl_x + t_eval^2 * x2
+			py = (1 - t_eval)^2 * y1 + 2 * (1 - t_eval) * t_eval * ctrl_y + t_eval^2 * y2
+			if hypot(px - x2, py - y2) <= r_nodo + 0.08
+				t_arr = t_eval
+				break
+			end
+		end
+		
+		# Tangente de la curva en t_arr para orientar la flecha
+		tan_x = 2 * (1 - t_arr) * (ctrl_x - x1) + 2 * t_arr * (x2 - ctrl_x)
+		tan_y = 2 * (1 - t_arr) * (ctrl_y - y1) + 2 * t_arr * (y2 - ctrl_y)
+		L = hypot(tan_x, tan_y)
+		ux = tan_x / L
+		uy = tan_y / L
+		
+		tip_x = (1 - t_arr)^2 * x1 + 2 * (1 - t_arr) * t_arr * ctrl_x + t_arr^2 * x2
+		tip_y = (1 - t_arr)^2 * y1 + 2 * (1 - t_arr) * t_arr * ctrl_y + t_arr^2 * y2
+		
+		arrow_len = 0.32
+		arrow_w = 0.16
+		base_x = tip_x - ux * arrow_len
+		base_y = tip_y - uy * arrow_len
+		
+		ts_curva = range(0, t_arr, length=30)
+		cx = (1 .- ts_curva).^2 .* x1 .+ 2 .* (1 .- ts_curva) .* ts_curva .* ctrl_x .+ ts_curva.^2 .* x2
+		cy = (1 .- ts_curva).^2 .* y1 .+ 2 .* (1 .- ts_curva) .* ts_curva .* ctrl_y .+ ts_curva.^2 .* y2
+		plot!(plt, cx, cy, color = col, lw = lw, alpha = 0.75)
+		
+		# Cabeza de flecha poligonal rellena apuntando exactamente al nodo destino
+		left_x = base_x - uy * (arrow_w / 2)
+		left_y = base_y + ux * (arrow_w / 2)
+		right_x = base_x + uy * (arrow_w / 2)
+		right_y = base_y - ux * (arrow_w / 2)
+		plot!(plt, Shape([tip_x, left_x, right_x], [tip_y, left_y, right_y]),
+		      color = col, linecolor = col, lw = 1, alpha = 0.95)
+		
+		mid_x = (x1 + x2) / 2
+		mid_y = h_curva + (es_superior ? 0.28 : -0.28)
+		annotate!(plt, mid_x, mid_y, text(@sprintf("%.2f", prob), 8, :center, col, Sys.iswindows() ? "arialbd" : "sans-serif"))
+	end
+	
+	# Función para dibujar autolazo con flecha hacia el nodo
+	function dibujar_autolazo_flecha!(plt, x0, y0, col, lw, prob)
+		cx = x0
+		cy = y0 + 1.05
+		r_loop = 0.58
+		thetas = range(-0.3, 2π + 0.3, length=50)
+		lx = cx .+ r_loop .* cos.(thetas)
+		ly = cy .+ r_loop .* sin.(thetas)
+		plot!(plt, lx, ly, color = col, lw = lw, alpha = 0.75)
+		
+		# Punta de flecha en el lado izquierdo del bucle apuntando hacia abajo al nodo
+		th = π + 0.5
+		tip_x = cx + r_loop * cos(th)
+		tip_y = cy + r_loop * sin(th)
+		ux = sin(th)
+		uy = -cos(th)
+		L = hypot(ux, uy)
+		ux /= L; uy /= L
+		
+		al = 0.28; aw = 0.16
+		bx = tip_x - ux * al
+		by = tip_y - uy * al
+		plot!(plt, Shape([tip_x, bx - uy * (aw/2), bx + uy * (aw/2)], [tip_y, by + ux * (aw/2), by - ux * (aw/2)]),
+		      color = col, linecolor = col, lw = 1, alpha = 0.95)
+		
+		annotate!(plt, cx, cy + r_loop + 0.32, text(@sprintf("%.2f", prob), 8, :center, col, Sys.iswindows() ? "arialbd" : "sans-serif"))
+	end
+	
+	# Dibujar todas las transiciones con flechas según P_toy
 	for i in 0:M_toy
 		for j in 0:M_toy
 			prob = P_toy[i + 1, j + 1]
@@ -848,45 +921,29 @@ begin
 				x_j, y_j = xs_toy[j + 1], ys_toy[j + 1]
 				
 				if i == j
-					# Autolazo (bucle superior)
-					theta = range(0, 2π, length=40)
-					r_loop = 0.55
-					cx = x_i
-					cy = y_i + 0.95
-					plot!(p_diag_markov, cx .+ r_loop .* cos.(theta), cy .+ r_loop .* sin.(theta),
-					      color = i == 0 ? :red : :gray, lw = i == 0 ? 2.5 : 1.5, alpha = 0.75)
-					annotate!(p_diag_markov, cx, cy + r_loop + 0.28,
-					          text(@sprintf("%.2f", prob), 8, :center, i == 0 ? :red : :black, Sys.iswindows() ? "arialbd" : "sans-serif"))
+					col_l = i == 0 ? "#e53935" : "#757575"
+					lw_l = i == 0 ? 2.5 : 1.5
+					dibujar_autolazo_flecha!(p_diag_markov, x_i, y_i, col_l, lw_l, prob)
 				elseif j > i
-					# Transición hacia arriba (arco azul superior)
-					dist = abs(x_j - x_i)
-					h = 0.42 * dist
-					ts = range(0, 1, length=30)
-					arc_x = (1 .- ts) .* x_i .+ ts .* x_j
-					arc_y = 4 .* h .* ts .* (1 .- ts)
-					plot!(p_diag_markov, arc_x, arc_y, color = "#1e88e5", lw = 1.0 + 3.0 * prob, alpha = 0.7)
-					mid_x = (x_i + x_j) / 2
-					mid_y = h
-					annotate!(p_diag_markov, mid_x, mid_y + 0.25,
-					          text(@sprintf("%.2f", prob), 8, :center, "#1565c0", Sys.iswindows() ? "arialbd" : "sans-serif"))
+					# Transición creciente i -> j (hacia la derecha, arco superior azul)
+					dist_step = abs(j - i)
+					h_val = 0.55 + 0.40 * (dist_step - 1)
+					col_u = "#1e88e5"
+					lw_u = 1.2 + 3.0 * prob
+					dibujar_flecha_curva!(p_diag_markov, x_i, y_i, x_j, y_j, h_val, col_u, lw_u, prob, true)
 				else
-					# Transición hacia abajo/extinción (arco rojo/naranja inferior)
-					dist = abs(x_i - x_j)
-					h = -0.42 * dist
-					ts = range(0, 1, length=30)
-					arc_x = (1 .- ts) .* x_i .+ ts .* x_j
-					arc_y = 4 .* h .* ts .* (1 .- ts)
-					plot!(p_diag_markov, arc_x, arc_y, color = j == 0 ? "#e53935" : "#e65100", lw = 1.0 + 3.5 * prob, alpha = 0.75)
-					mid_x = (x_i + x_j) / 2
-					mid_y = h
-					annotate!(p_diag_markov, mid_x, mid_y - 0.25,
-					          text(@sprintf("%.2f", prob), 8, :center, j == 0 ? "#c62828" : "#bf360c", Sys.iswindows() ? "arialbd" : "sans-serif"))
+					# Transición decreciente i -> j (hacia la izquierda / extinción, arco inferior rojo/naranja)
+					dist_step = abs(i - j)
+					h_val = -(0.65 + 0.55 * (dist_step - 1))
+					col_d = j == 0 ? "#e53935" : "#e65100"
+					lw_d = 1.2 + 3.5 * prob
+					dibujar_flecha_curva!(p_diag_markov, x_i, y_i, x_j, y_j, h_val, col_d, lw_d, prob, false)
 				end
 			end
 		end
 	end
 	
-	# Dibujar los nodos con círculos gruesos y nombre
+	# Dibujar nodos circulares con etiquetas
 	for idx in 1:(M_toy + 1)
 		scatter!(p_diag_markov, [xs_toy[idx]], [ys_toy[idx]],
 		         markersize = 28, color = :white,
@@ -967,6 +1024,9 @@ begin
 	p_flujo
 end
 
+# ╔═╡ 325ea572-42fd-42bc-845b-475202e2d223
+
+
 # ╔═╡ 00000002-0002-0002-0002-000000000069
 begin
 	gens_curva_p = 0:25
@@ -993,14 +1053,14 @@ end
 
 # ╔═╡ 00000002-0002-0002-0002-000000000070
 md"""
-### 📋 Caracterización Matemática Formal de la Cadena
+### Caracterización Matemática Formal de la Cadena
 
-| Propiedad | Clasificación en este Modelo | Explicación en Cristiano |
+| Propiedad | Clasificación en este Modelo | Explicación Simplificada |
 |:---|:---|:---|
 | **Espacio de Estados** | $\{0, 1, 2, \ldots, M\}$ | Número de personas vivas portadoras del apellido |
-| **Clasificación del Estado 0** | **Absorbente y Recurrente** | Si se extingue, $P_{0,0} = 1$. Nunca resucita |
+| **Clasificación del Estado 0** | **Absorbente y Recurrente** | Si se extingue, $P_{0,0} = 1$. No vuelve a surgir |
 | **Clasificación de Estados $k \ge 1$** | **Transitorios** | La probabilidad de volver a ellos tiende a 0 conforme $n \to \infty$ |
-| **Irreducibilidad** | ❌ **No irreducible** | No todos los estados se comunican: de los transitorios vas al 0, pero del 0 no puedes volver |
+| **Irreducibilidad** | **No irreducible** | No todos los estados se comunican: de los transitorios vas al 0, pero del 0 no puedes volver |
 | **Periodicidad** | **Aperiódica** ($d = 1$) | El estado 0 tiene bucle $P_{0,0} = 1$; no hay ciclos oscilatorios forzados |
 | **Distribución Límite / Estacionaria** | $\boldsymbol{\pi}^* = [1.0, 0, 0, \ldots, 0]$ | Toda la masa probabilística termina inevitablemente concentrada en el estado 0 |
 | **Tiempo de Absorción** | Finito casi seguramente | En régimen subcrítico ($\lambda < 1$), el tiempo hasta la extinción es finito con probabilidad 1 |
@@ -1008,15 +1068,15 @@ md"""
 
 # ╔═╡ 00000002-0002-0002-0002-000000000071
 md"""
-### 💡 Resumen para Humanos ("Para Dummies")
+### Resumen simplificado
 
-Imagina la cadena de Markov de Galton-Watson como un **juego de mesa con un tobogán empinado**:
-1. **El tablero:** Cada casilla es un número de personas ($0, 1, 2, 3 \ldots$).
-2. **Tu ficha:** Empieza en la casilla de tu apellido ($Z_0$).
-3. **El dado (la matriz $P$):** En cada turno (generación), tiras los dados según la fila de tu casilla actual.
-4. **La trampa del régimen subcrítico ($\lambda < 1$):** El dado está cargado para dar números menores. El tablero está inclinado hacia abajo.
-5. **La casilla 0:** Es un agujero negro. Una vez que caes en 0, no hay dados que tirar: te quedas en 0 para siempre.
-6. **El resultado:** No importa si empiezas con 1 persona o con los 754.991 Rodríguez de Colombia; si la fertilidad es menor a la de reemplazo, **toda la probabilidad resbala por el tobogán y termina dentro del hoyo 0**.
+Imagina la cadena de Markov de Galton-Watson como un modelo dinámico paso a paso:
+1. **El espacio de estados:** Cada posición representa un número de portadores ($0, 1, 2, 3 \ldots$).
+2. **El estado inicial:** Arranca en la cantidad actual del apellido ($Z_0$).
+3. **La matriz de transición $P$:** En cada generación, la población salta a un nuevo estado según las probabilidades calculadas en su fila actual.
+4. **El régimen subcrítico ($\lambda < 1$):** Las probabilidades se concentran a la izquierda de la diagonal, generando una deriva sistemática hacia números menores.
+5. **El estado 0 (Extinción):** Es un pozo absorbente. Una vez que se alcanza 0, no hay descendencia posible y la cadena permanece en 0 con probabilidad 1.
+6. **Conclusión estocástica:** Sin importar si el apellido cuenta con 1 individuo o con los 754.991 Rodríguez del Censo DANE, con fertilidad por debajo del reemplazo, **toda la probabilidad converge inexorablemente hacia el estado 0**.
 """
 
 # ╔═╡ Cell order:
@@ -1062,8 +1122,8 @@ Imagina la cadena de Markov de Galton-Watson como un **juego de mesa con un tobo
 # ╟─00000002-0002-0002-0002-000000000047
 # ╟─00000002-0002-0002-0002-000000000048
 # ╟─00000002-0002-0002-0002-000000000049
-# ╟─00000002-0002-0002-0002-000000000050
-# ╟─00000002-0002-0002-0002-000000000051
+# ╠═00000002-0002-0002-0002-000000000050
+# ╠═00000002-0002-0002-0002-000000000051
 # ╟─00000002-0002-0002-0002-000000000052
 # ╟─00000002-0002-0002-0002-000000000060
 # ╟─00000002-0002-0002-0002-000000000061
@@ -1076,6 +1136,7 @@ Imagina la cadena de Markov de Galton-Watson como un **juego de mesa con un tobo
 # ╟─00000002-0002-0002-0002-000000000066
 # ╟─00000002-0002-0002-0002-000000000067
 # ╟─00000002-0002-0002-0002-000000000068
+# ╠═325ea572-42fd-42bc-845b-475202e2d223
 # ╟─00000002-0002-0002-0002-000000000069
 # ╟─00000002-0002-0002-0002-000000000070
 # ╟─00000002-0002-0002-0002-000000000071
