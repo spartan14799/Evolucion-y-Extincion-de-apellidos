@@ -4,9 +4,11 @@
 # Reemplaza a los antiguos .bat (que ataban la ruta de Julia a Windows).
 #
 # Uso (desde la raiz del proyecto):
-#     julia --project=. scripts/pluto.jl          # servidor Pluto (elige notebook en el navegador)
-#     julia --project=. scripts/pluto.jl bgw      # abre notebooks/bgw_model.jl
-#     julia --project=. scripts/pluto.jl parejas   # abre notebooks/experiments_couple_model.jl
+#     julia --project=. scripts/pluto.jl              # servidor Pluto (elige notebook en el navegador)
+#     julia --project=. scripts/pluto.jl bgw          # notebooks/basic/bgw_model.jl
+#     julia --project=. scripts/pluto.jl parejas      # notebooks/basic/couple_model.jl
+#     julia --project=. scripts/pluto.jl bgw-dane      # notebooks/results/bgw_colombia_dane.jl
+#     julia --project=. scripts/pluto.jl parejas-dane  # notebooks/results/couple_genealogy_dane.jl
 #
 # No hardcodea la ruta de Julia: usa el interprete con el que se lanza y el
 # entorno activado por --project=. Antes de abrir instancia el entorno si hace
@@ -21,8 +23,10 @@ Pkg.instantiate()
 using Pluto
 
 const NOTEBOOKS = Dict(
-    "bgw" => joinpath("notebooks", "bgw_model.jl"),
-    "parejas" => joinpath("notebooks", "experiments_couple_model.jl"),
+    "bgw" => joinpath("notebooks", "basic", "bgw_model.jl"),
+    "parejas" => joinpath("notebooks", "basic", "couple_model.jl"),
+    "bgw-dane" => joinpath("notebooks", "results", "bgw_colombia_dane.jl"),
+    "parejas-dane" => joinpath("notebooks", "results", "couple_genealogy_dane.jl"),
 )
 
 function main(args)
