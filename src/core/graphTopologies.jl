@@ -1,29 +1,12 @@
-# src/graphTopologies.jl
+# src/core/graphTopologies.jl
 #
-# Generadores de topologias para el modelo estacionario de apellidos.
+# Generadores de topologias para el modelo por parejas. Construyen el
+# diccionario de adyacencia `compatibles::Dict{Int,Vector{Int}}` (quien puede
+# emparejarse con quien) que consume src/coupleModel.jl. Cada apellido es un
+# vertice; por defecto cada apellido es compatible consigo mismo (auto-lazo).
 #
-# Cada apellido es un vertice del grafo dirigido. Estas funciones construyen el
-# diccionario de adyacencia `compatibles::Dict{Int,Vector{Int}}` que consume
-# `GrafoApellidos` (ver src/graphModel.jl): `compatibles[i]` es la lista de
-# apellidos con los que el apellido `i` puede emparejarse.
-#
-# Convenciones:
-# - Los apellidos se identifican con enteros 1..n (o los ids que indique el
-#   usuario). Salvo que se diga lo contrario, cada apellido es compatible
-#   consigo mismo (auto-lazo), porque la reproduccion con el propio apellido es
-#   parte del modelo.
-# - Las topologias aqui definidas son NO dirigidas en el sentido de la
-#   compatibilidad (si i puede con j, j puede con i). El motor sigue siendo
-#   dirigido porque las probabilidades P(i->j) se calculan por separado para
-#   cada fila; si se quieren compatibilidades asimetricas, se construye el Dict
-#   a mano.
-#
-# Nota teorica importante: con topologia FIJA y un nodo por apellido, la deriva
-# lleva a la fijacion de un unico apellido siempre que el grafo sea conexo. El
-# unico equilibrio real con k apellidos es un grafo con k COMPONENTES aisladas
-# (ver `topo_componentes`). El resto de topologias producen coexistencia
-# transitoria: lo interesante en ellas es la dinamica (orden y tiempo de
-# extincion), no el equilibrio.
+# Documentacion completa (topologias disponibles, convenciones, uso):
+# docs/code/graphTopologies.md
 
 """
     _agregar_autolazo!(compatibles)

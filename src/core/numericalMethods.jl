@@ -1,4 +1,10 @@
-# src/NumericalMethods.jl
+# src/core/numericalMethods.jl
+#
+# Metodos numericos clasicos de busqueda de raices (biseccion, Newton, secante).
+# Soporte generico: el modelo BGW los usa para resolver g(t)=t y hallar la
+# probabilidad de extincion. Sin dependencias externas.
+#
+# Documentacion completa (firmas, uso): docs/code/numericalMethods.md
 
 
 """

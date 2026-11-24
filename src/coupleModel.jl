@@ -1,29 +1,12 @@
-# src/modeloParejas.jl
+# src/coupleModel.jl
 #
-# MODELO POR PAREJAS (modelo vigente del grafo de apellidos).
+# MODELO 2: modelo por parejas sobre el grafo de apellidos (modelo vigente).
+# Nodo = apellido; las aristas (`compatibles`) definen que apellidos pueden
+# emparejarse. La unidad reproductiva es la PAREJA y cada una aporta 2 hijos,
+# de modo que N = 2P se conserva. Motor independiente: simula la evolucion
+# hasta fijacion, equilibrio permanente o tope de generaciones.
 #
-# Nodo = apellido. Las aristas del grafo (`compatibles`) definen que apellidos
-# pueden emparejarse. A diferencia del modelo antiguo (Wright-Fisher global en
-# graphModel.jl, que solo conserva el total N y deja derivar a cada grupo), aqui
-# la unidad reproductiva es la PAREJA y cada pareja aporta un numero fijo de
-# hijos, de modo que el tamano de cada grupo cerrado se conserva.
-#
-# Reglas de una generacion (de 2P padres a 2P hijos):
-#   1. Emparejamiento SIN reemplazo: se barajan las personas y, en orden
-#      aleatorio, cada persona suelta busca pareja entre las personas todavia
-#      sueltas cuyo apellido sea compatible con el suyo. La pareja concreta se
-#      sortea segun el modo de probabilidad (:uniforme_aristas o :ponderado),
-#      con pesos calculados UNA vez al inicio de la generacion.
-#   2. Herencia: por cada pareja se elige al azar (50/50) a uno de los dos
-#      miembros; AMBOS hijos de la pareja toman ese apellido. El otro apellido
-#      no se transmite en esa pareja.
-#   3. Cada pareja produce exactamente 2 hijos, asi N = 2P se conserva.
-#
-# Emparejamiento forzado (mutacion definida): si al final quedan personas
-# sueltas sin ningun compatible suelto disponible, se emparejan entre si aunque
-# sean incompatibles. Cada uno de esos eventos se registra.
-#
-# Este archivo NO depende de graphModel.jl; es un motor independiente.
+# Documentacion completa (reglas, funciones, uso): docs/code/coupleModel.md
 
 using Random
 using StatsBase
