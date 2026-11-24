@@ -1,10 +1,13 @@
-# src/experimentos.jl
+# src/core/experimentMetrics.jl
 #
-# Metricas y runner de experimentos sobre el MODELO POR PAREJAS
-# (src/modeloParejas.jl). Todo es post-proceso del `historial` y de
-# `forzadas_por_gen` que devuelve `simular_parejas`; no se toca el motor.
+# Metricas y runner de experimentos sobre el modelo por parejas
+# (src/coupleModel.jl). Post-procesa el `historial` y las parejas forzadas que
+# devuelve `simular_parejas` (diversidad, orden de extincion, mutaciones) y
+# orquesta corridas repetidas con estadisticas agregadas. No toca el motor.
 #
-# Requiere que modeloParejas.jl y graphTopologies.jl esten cargados.
+# Documentacion completa (metricas, runner, uso): docs/code/experimentMetrics.md
+#
+# Requiere que coupleModel.jl este cargado antes que este archivo.
 
 using Random
 using StatsBase

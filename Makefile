@@ -11,7 +11,7 @@ PROJECT = --project=.
 
 .DEFAULT_GOAL := help
 
-.PHONY: help instantiate pluto bgw parejas experimentos simulation test test-markov bench
+.PHONY: help instantiate pluto bgw parejas bgw-dane parejas-dane experimentos simulation test test-markov bench
 
 help: ## Muestra esta ayuda
 	@echo "Objetivos disponibles:"
@@ -28,8 +28,14 @@ pluto: ## Lanza el servidor Pluto (elige el notebook en el navegador)
 bgw: ## Abre el notebook del modelo Bienayme-Galton-Watson
 	$(JULIA) $(PROJECT) scripts/pluto.jl bgw
 
-parejas: ## Abre el notebook del modelo por parejas (experiments_couple_model)
+parejas: ## Abre el notebook basico del modelo por parejas (couple_model)
 	$(JULIA) $(PROJECT) scripts/pluto.jl parejas
+
+bgw-dane: ## Abre el notebook de resultados BGW con datos del Censo DANE 2018
+	$(JULIA) $(PROJECT) scripts/pluto.jl bgw-dane
+
+parejas-dane: ## Abre el notebook de resultados del arbol genealogico (DANE 2018)
+	$(JULIA) $(PROJECT) scripts/pluto.jl parejas-dane
 
 experimentos: ## Corre el catalogo de experimentos por parejas y guarda PNG + CSV en output/
 	$(JULIA) $(PROJECT) scripts/experimentos_parejas.jl

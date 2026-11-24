@@ -19,14 +19,14 @@ end
 # ╔═╡ c0000001-0000-0000-0000-000000000001
 begin
     import Pkg
-    Pkg.activate(joinpath(@__DIR__, ".."))
+    Pkg.activate(joinpath(@__DIR__, "..", ".."))
     using Random, StatsBase, Plots, PlutoUI, Printf
 
     # Motor del modelo por parejas y utilidades del proyecto.
-    include(joinpath(@__DIR__, "..", "src", "modeloParejas.jl"))
-    include(joinpath(@__DIR__, "..", "src", "graphTopologies.jl"))
-    include(joinpath(@__DIR__, "..", "src", "experimentos.jl"))
-    include(joinpath(@__DIR__, "..", "src", "visualizacion.jl"))
+    include(joinpath(@__DIR__, "..", "..", "src", "coupleModel.jl"))
+    include(joinpath(@__DIR__, "..", "..", "src", "core", "graphTopologies.jl"))
+    include(joinpath(@__DIR__, "..", "..", "src", "core", "experimentMetrics.jl"))
+    include(joinpath(@__DIR__, "..", "..", "src", "core", "visualization.jl"))
     md"Entorno y modulos cargados."
 end
 
@@ -440,165 +440,6 @@ begin
     Markdown.parse(join(_filas_pg, "\n"))
 end
 
-# ╔═╡ c0000001-0000-0000-0000-000000000140
-md"""
----
-## Arbol genealogico de linajes (Censo DANE 2018)
-
-Simulamos el arbol genealogico generacion por generacion con el motor del modelo
-por parejas (`siguiente_generacion_parejas`). Cada fila es una generacion, cada
-circulo una persona (el color es su apellido) y las lineas conectan cada pareja
-de padres con sus dos hijos. Usamos los 10 apellidos mas frecuentes de Colombia
-segun el Censo Nacional de Poblacion y Vivienda (DANE 2018).
-
-A diferencia del modelo antiguo, aqui la unidad que se reproduce es la PAREJA:
-cada pareja de la generacion `t` aporta exactamente dos hijos a la generacion
-`t+1`, que heredan el apellido de uno de los dos padres.
-"""
-
-# ╔═╡ c0000001-0000-0000-0000-000000000141
-md"""**Modo de poblacion inicial**: $(@bind modo_dane Select([
-    "equitativo" => "Equitativo (1 pareja por apellido)",
-    "dane" => "Proporcional al Censo DANE 2018",
-], default="equitativo"))"""
-
-# ╔═╡ c0000001-0000-0000-0000-000000000142
-md"""**Parejas totales** (poblacion = 2 x parejas): $(@bind parejas_dane Slider(5:1:20, default=10, show_value=true))"""
-
-# ╔═╡ c0000001-0000-0000-0000-000000000143
-md"""**Modo de probabilidad**: $(@bind modo_prob_dane Select([
-    "ponderado" => "Ponderado por conteo",
-    "uniforme_aristas" => "Uniforme por aristas",
-], default="ponderado"))"""
-
-# ╔═╡ c0000001-0000-0000-0000-000000000144
-md"""**Semilla de la partida**: $(@bind semilla_dane Slider(1:100, default=7, show_value=true))"""
-
-# ╔═╡ c0000001-0000-0000-0000-000000000145
-md"""**Maximo de generaciones a mostrar**: $(@bind max_gen_dane Slider(5:5:40, default=25, show_value=true))"""
-
-# ╔═╡ c0000001-0000-0000-0000-000000000146
-begin
-    _ap_col = ["Rodriguez", "Martinez", "Garcia", "Gomez", "Lopez",
-               "Hernandez", "Perez", "Sanchez", "Gonzalez", "Ramirez"]
-    _conteos_dane = [754991, 602593, 574856, 569534, 565394, 502626, 493764, 487112, 470505, 441179]
-    _pesos_dane = _conteos_dane ./ sum(_conteos_dane)
-    _colores_dane = ["#1E88E5", "#8E24AA", "#FB8C00", "#212121", "#6D4C41",
-                     "#E53935", "#43A047", "#00ACC1", "#FDD835", "#3949AB"]
-
-    _N_dane = 2 * parejas_dane
-    _rng_dane = MersenneTwister(semilla_dane)
-
-    # Poblacion inicial sobre 10 apellidos. Cada pareja aporta 2 personas del
-    # mismo apellido inicial, de modo que el tamano total siempre es par.
-    _apellidos_pareja = if modo_dane == "equitativo"
-        [mod1(k, 10) for k in 1:parejas_dane]
-    else
-        sample(_rng_dane, 1:10, Weights(_pesos_dane), parejas_dane)
-    end
-    _pob_dane = Int[]
-    for a in _apellidos_pareja
-        append!(_pob_dane, (a, a))
-    end
-
-    # Grafo completo sobre los 10 apellidos (todos pueden emparejarse con todos).
-    _compat_dane = topo_completo(10)
-
-    # Simulamos guardando el historial con el motor del modelo por parejas.
-    _hist_dane = [copy(_pob_dane)]
-    _caidos = Dict{Int,Int}()
-    for g in 1:max_gen_dane
-        _actual = _hist_dane[g]
-        _hijos, _ = siguiente_generacion_parejas(_actual, _compat_dane, _rng_dane;
-                                                 modo_prob = Symbol(modo_prob_dane))
-        push!(_hist_dane, _hijos)
-        _vivos = Set(_hijos)
-        for a in unique(_hist_dane[1])
-            if a ∉ _vivos && !haskey(_caidos, a)
-                _caidos[a] = g
-            end
-        end
-        length(_vivos) == 1 && break
-    end
-
-    _G_dane = length(_hist_dane) - 1
-    _ganador_dane = _hist_dane[end][1]
-    _fijo_dane = length(unique(_hist_dane[end])) == 1
-
-    # Dibujo del arbol: una columna por persona, una fila por generacion.
-    _p_arbol = plot(size = (820, max(460, 30 * (_G_dane + 1))),
-                    legend = :outerright,
-                    xlims = (0.3, _N_dane + 0.7),
-                    ylims = (-_G_dane - 0.7, 0.7),
-                    yticks = (-(0:_G_dane), ["Gen $g" for g in 0:_G_dane]),
-                    title = "Arbol genealogico por parejas (DANE 2018)",
-                    grid = false, framestyle = :box)
-
-    # Lineas de parentesco: el motor devuelve los hijos agrupados de dos en dos
-    # por pareja, asi que conectamos cada par de hijos con un padre de su mismo
-    # apellido (conexion visual aproximada).
-    _xc = Float64[]; _yc = Float64[]
-    for g in 1:_G_dane
-        _padres = _hist_dane[g]
-        _hijos = _hist_dane[g + 1]
-        _np = length(_hijos)
-        for k in 1:2:(_np - 1)
-            _ap_hijo = _hijos[k]
-            _padres_idx = findall(==(_ap_hijo), _padres)
-            _pi = isempty(_padres_idx) ? rand(_rng_dane, 1:_np) : rand(_rng_dane, _padres_idx)
-            for h in (k, k + 1)
-                push!(_xc, _pi); push!(_yc, -(g - 1))
-                push!(_xc, h);   push!(_yc, -g)
-                push!(_xc, NaN); push!(_yc, NaN)
-            end
-        end
-    end
-    plot!(_p_arbol, _xc, _yc; color = :black, alpha = 0.5, lw = 1.1, label = false)
-
-    for ap in 1:10
-        _xs = Float64[]; _ys = Float64[]
-        for g in 0:_G_dane
-            for i in 1:_N_dane
-                if _hist_dane[g + 1][i] == ap
-                    push!(_xs, i); push!(_ys, -g)
-                end
-            end
-        end
-        if !isempty(_xs)
-            scatter!(_p_arbol, _xs, _ys; color = _colores_dane[ap], markersize = 8,
-                     markerstrokecolor = :black, markerstrokewidth = 1,
-                     label = _ap_col[ap])
-        end
-    end
-    _p_arbol
-end
-
-# ╔═╡ c0000001-0000-0000-0000-000000000147
-begin
-    _nom_ganador = _ap_col[_ganador_dane]
-    _ext_ord = sort(collect(_caidos), by = x -> x[2])
-    _filas_ext = String[]
-    for (pos, (ap_id, gen_ext)) in enumerate(_ext_ord)
-        push!(_filas_ext, "$pos. **$(_ap_col[ap_id])** (extinto en Gen $gen_ext)")
-    end
-    _resumen_ext = isempty(_filas_ext) ? "*Ningun apellido se extinguio aun.*" : join(_filas_ext, "<br>")
-
-    md"""
-    ### Resultado del arbol
-
-    | Campo | Valor |
-    |:--|:--|
-    | Estado final | **$(_fijo_dane ? "Fijacion de un apellido" : "Sin fijacion en $(_G_dane) generaciones")** |
-    | Apellido dominante | **$(_nom_ganador)** |
-    | Generaciones | **$(_G_dane)** |
-    | Modo inicial | **$(modo_dane)** |
-    | Modo de probabilidad | **$(modo_prob_dane)** |
-
-    **Cronologia de extincion:**<br>
-    $(_resumen_ext)
-    """
-end
-
 # ╔═╡ c0000001-0000-0000-0000-000000000050
 md"""
 ---
@@ -659,12 +500,4 @@ md"""
 # ╠═c0000001-0000-0000-0000-000000000131
 # ╟─c0000001-0000-0000-0000-000000000132
 # ╟─c0000001-0000-0000-0000-000000000133
-# ╟─c0000001-0000-0000-0000-000000000140
-# ╟─c0000001-0000-0000-0000-000000000141
-# ╟─c0000001-0000-0000-0000-000000000142
-# ╟─c0000001-0000-0000-0000-000000000143
-# ╟─c0000001-0000-0000-0000-000000000144
-# ╟─c0000001-0000-0000-0000-000000000145
-# ╠═c0000001-0000-0000-0000-000000000146
-# ╟─c0000001-0000-0000-0000-000000000147
 # ╟─c0000001-0000-0000-0000-000000000050

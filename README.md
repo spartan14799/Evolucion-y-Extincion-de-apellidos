@@ -29,23 +29,41 @@ parada y catálogo de experimentos) está en
 ├── README.md
 ├── docs/
 │   ├── justificacion-teorica.md   # Modelo matemático y su mapeo al código
-│   └── modelo-parejas.md          # Modelo por parejas: reglas, parada y experimentos
+│   ├── modelo-parejas.md          # Modelo por parejas: reglas, parada y experimentos
+│   └── code/                      # Una ficha por archivo de código (ver docs/code/README.md)
 ├── src/
-│   ├── numericalMethods.jl   # biseccion, newton, secante
-│   ├── markovModels.jl       # ModeloPBGW y cálculo/simulación de extinción
-│   ├── modeloParejas.jl      # Motor del modelo por parejas (modelo vigente)
-│   ├── graphTopologies.jl    # Generadores de topologías del grafo de apellidos
-│   ├── experimentos.jl       # Métricas y runner de experimentos del modelo por parejas
-│   └── visualizacion.jl      # Utilidades de graficación (grafo, conteos, diversidad)
+│   ├── bgwModel.jl           # MODELO 1: Bienaymé–Galton–Watson (extinción de linajes)
+│   ├── coupleModel.jl        # MODELO 2: modelo por parejas sobre el grafo de apellidos
+│   ├── core/                 # Requisitos genéricos de los modelos
+│   │   ├── numericalMethods.jl   # biseccion, newton, secante
+│   │   ├── graphTopologies.jl    # Generadores de topologías del grafo de apellidos
+│   │   ├── experimentMetrics.jl  # Métricas y runner de experimentos del modelo por parejas
+│   │   └── visualization.jl      # Utilidades de graficación (grafo, conteos, diversidad)
+│   └── experiments/          # Datos reales y orquestación para los notebooks de results/
+│       ├── daneData.jl           # Datos del Censo DANE 2018 (solo datos)
+│       ├── daneBgwRunners.jl     # Monte Carlo BGW sobre los datos DANE
+│       └── daneCoupleRunners.jl  # Árbol genealógico por parejas sobre los datos DANE
 ├── scripts/
 │   ├── pluto.jl                  # Lanzador multiplataforma de los notebooks Pluto
-│   ├── run_simulation.jl         # Simulación inicial de demostración
+│   ├── run_simulation.jl         # Simulación inicial de demostración (BGW)
 │   └── experimentos_parejas.jl   # Catálogo reproducible: escribe PNG + CSV en output/
+├── notebooks/
+│   ├── basic/                # Ilustración interactiva de cada modelo
+│   │   ├── bgw_model.jl          # Modelo BGW: regímenes, FGP, Monte Carlo, cadena de Markov
+│   │   └── couple_model.jl       # Modelo por parejas: topologías y dinámica del grafo
+│   └── results/              # Aplicación a datos reales (Censo DANE 2018)
+│       ├── bgw_colombia_dane.jl       # ¿Cuándo se extinguen los apellidos de Colombia?
+│       └── couple_genealogy_dane.jl   # Árbol genealógico por parejas con datos DANE
 └── test/
     ├── runtests.jl           # Tests de los métodos numéricos
-    ├── test_markov.jl        # Tests del modelo de Markov / simulación
+    ├── test_markov.jl        # Tests del modelo BGW / simulación
     └── benchmarks.jl         # Benchmark de los métodos numéricos
 ```
+
+La documentación detallada de cada archivo de código (qué hace, cómo, qué
+funciones expone y su uso) está en [`docs/code/`](docs/code/README.md). El
+encabezado de cada archivo `.jl` lleva sólo una descripción breve y apunta a su
+ficha correspondiente.
 
 ## Requisitos
 
@@ -117,8 +135,10 @@ Objetivos principales:
 | ------------------ | --------------------------------------------------------- |
 | `make instantiate` | Instala y precompila las dependencias (solo una vez)      |
 | `make pluto`       | Lanza el servidor Pluto (eliges el notebook en el navegador) |
-| `make bgw`         | Abre el notebook del modelo Bienaymé–Galton–Watson        |
-| `make parejas`     | Abre el notebook del modelo por parejas                   |
+| `make bgw`         | Abre el notebook básico del modelo Bienaymé–Galton–Watson |
+| `make parejas`     | Abre el notebook básico del modelo por parejas            |
+| `make bgw-dane`    | Abre el notebook de resultados BGW con datos del Censo DANE 2018 |
+| `make parejas-dane`| Abre el notebook de resultados del árbol genealógico (DANE 2018) |
 | `make experimentos`| Corre el catálogo de experimentos por parejas (PNG + CSV en `output/`) |
 | `make simulation`  | Ejecuta la simulación de demostración                     |
 | `make test`        | Tests de los métodos numéricos                            |
@@ -149,11 +169,16 @@ julia --project=. scripts/pluto.jl        # o: make pluto
 Abrir directamente un notebook concreto:
 
 ```bash
-julia --project=. scripts/pluto.jl bgw    # Bienaymé–Galton–Watson  (make bgw)
-julia --project=. scripts/pluto.jl parejas # Modelo por parejas      (make parejas)
+julia --project=. scripts/pluto.jl bgw          # BGW básico             (make bgw)
+julia --project=. scripts/pluto.jl parejas      # Parejas básico         (make parejas)
+julia --project=. scripts/pluto.jl bgw-dane     # BGW con datos DANE     (make bgw-dane)
+julia --project=. scripts/pluto.jl parejas-dane # Árbol genealógico DANE (make parejas-dane)
 ```
 
-El modelo por parejas está documentado en
+Los notebooks se organizan en dos carpetas: `notebooks/basic/` ilustra cómo
+funciona cada modelo de forma interactiva, y `notebooks/results/` aplica los
+modelos a datos reales del Censo DANE 2018. Todos cargan el código únicamente de
+`src/` (no redefinen los modelos). El modelo por parejas está documentado en
 [`docs/modelo-parejas.md`](docs/modelo-parejas.md).
 
 ## Catálogo reproducible de experimentos (sin Pluto)

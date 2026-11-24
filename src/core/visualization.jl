@@ -1,9 +1,13 @@
-# src/visualizacion.jl
+# src/core/visualization.jl
 #
-# Utilidades de graficacion para el modelo estacionario de apellidos.
+# Utilidades de graficacion para el modelo por parejas: dibuja el grafo de
+# apellidos y grafica conteos, diversidad y estadisticas de supervivencia a
+# partir de las salidas del modelo. No contiene logica de modelo.
 #
-# Usa Plots.jl (ya era dependencia) y, para dibujar los grafos, Graphs.jl +
-# GraphRecipes.jl. Requiere que graphModel.jl y experimentos.jl esten cargados.
+# Documentacion completa (graficas disponibles, uso): docs/code/visualization.md
+#
+# Usa Plots.jl y, para dibujar los grafos, Graphs.jl + GraphRecipes.jl.
+# Requiere que experimentMetrics.jl este cargado antes que este archivo.
 
 using Plots
 using Graphs

@@ -31,10 +31,10 @@ using StatsBase
 using Printf
 using DelimitedFiles
 
-include(joinpath(@__DIR__, "..", "src", "modeloParejas.jl"))
-include(joinpath(@__DIR__, "..", "src", "graphTopologies.jl"))
-include(joinpath(@__DIR__, "..", "src", "experimentos.jl"))
-include(joinpath(@__DIR__, "..", "src", "visualizacion.jl"))
+include(joinpath(@__DIR__, "..", "src", "coupleModel.jl"))
+include(joinpath(@__DIR__, "..", "src", "core", "graphTopologies.jl"))
+include(joinpath(@__DIR__, "..", "src", "core", "experimentMetrics.jl"))
+include(joinpath(@__DIR__, "..", "src", "core", "visualization.jl"))
 
 # --------------------------------------------------------------------------
 # Lectura de parametros desde el entorno (con defaults reproducibles).

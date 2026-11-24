@@ -15,7 +15,7 @@
 
 using Printf
 
-include(joinpath(@__DIR__, "..", "src", "numericalMethods.jl"))
+include(joinpath(@__DIR__, "..", "src", "core", "numericalMethods.jl"))
 
 # -------------------------------------------------------------------
 # Funciones de prueba (mismas raices que en runtests.jl).

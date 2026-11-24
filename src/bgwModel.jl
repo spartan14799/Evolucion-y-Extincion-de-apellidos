@@ -1,3 +1,12 @@
+# src/bgwModel.jl
+#
+# MODELO 1: proceso de ramificacion de Bienayme-Galton-Watson (BGW).
+# Modela un apellido como un linaje donde cada portador tiene un numero
+# aleatorio de hijos (distribucion `pk`); calcula la probabilidad de extincion
+# `q` y simula la evolucion del linaje generacion a generacion.
+#
+# Documentacion completa (funciones, uso, dependencias): docs/code/bgwModel.md
+
 using Distributions
 using Random
 

@@ -19,14 +19,14 @@ end
 # ╔═╡ 00000002-0002-0002-0002-000000000001
 begin
 	import Pkg
-	Pkg.activate(joinpath(@__DIR__, ".."))
+	Pkg.activate(joinpath(@__DIR__, "..", ".."))
 	using Random, Distributions, Plots, PlutoUI, Printf
 
 	# ── Cargamos los módulos del proyecto tal cual están en src/ ──
-	include(joinpath(@__DIR__, "..", "src", "numericalMethods.jl"))
+	include(joinpath(@__DIR__, "..", "..", "src", "core", "numericalMethods.jl"))
 	# Esto nos da: biseccion, newton, secante
 
-	include(joinpath(@__DIR__, "..", "src", "markovModels.jl"))
+	include(joinpath(@__DIR__, "..", "..", "src", "bgwModel.jl"))
 	# Esto nos da: ModeloPBGW, esperanza, es_extincion_segura, fgp,
 	#              probabilidad_extincion, simular_generaciones, frecuencia_extincion
 end
@@ -42,7 +42,7 @@ md"""
 
 El **proceso de Bienaymé-Galton-Watson** (BGW) es un modelo clásico de procesos de ramificación. Fue propuesto originalmente en el siglo XIX precisamente para estudiar nuestro problema: **la extinción de apellidos aristocráticos**.
 
-La idea (implementada en [`src/markovModels.jl`](../src/markovModels.jl)):
+La idea (implementada en [`src/bgwModel.jl`](../../src/bgwModel.jl)):
 
 > Un apellido comienza con `Z₀` portadores. Cada portador tiene un número **aleatorio** de hijos (que heredan el apellido), según una distribución de descendencia `{pₖ}`. La población de la siguiente generación es la **suma** de todos los hijos. Si llega a **cero**, el apellido se ha **extinguido** para siempre.
 
@@ -69,7 +69,7 @@ $$g(t) = \mathbb{E}[t^X] = \sum_{k=0}^{\infty} p_k \, t^k, \quad t \in [0, 1]$$
 
 $$g(q) = q$$
 
-Para encontrar $q$, la función `probabilidad_extincion()` define $h(t) = g(t) - t$ y busca la raíz usando `biseccion()` o `secante()` de `src/numericalMethods.jl`.
+Para encontrar $q$, la función `probabilidad_extincion()` define $h(t) = g(t) - t$ y busca la raíz usando `biseccion()` o `secante()` de `src/core/numericalMethods.jl`.
 """
 
 # ╔═╡ 00000002-0002-0002-0002-000000000004
@@ -139,7 +139,7 @@ md"**Semilla aleatoria:** $(@bind seed_slider Slider(1:100, default=42, show_val
 begin
 	# ── Construir el modelo usando los constructores del proyecto ──
 	if dist_tipo == "Poisson"
-		# Usamos el constructor ModeloPBGW(tasa_natalidad) de markovModels.jl
+		# Usamos el constructor ModeloPBGW(tasa_natalidad) de bgwModel.jl
 		modelo = ModeloPBGW(lambda_slider; max_hijos=20)
 		param_str = "Poisson(λ=$(lambda_slider))"
 	else
@@ -152,9 +152,9 @@ begin
 	end
 	
 	# ── Usar las funciones del proyecto ──
-	m_esperanza = esperanza(modelo)       # de markovModels.jl
-	q_extincion = probabilidad_extincion(modelo)  # usa biseccion de numericalMethods.jl
-	extincion_segura = es_extincion_segura(modelo) # de markovModels.jl
+	m_esperanza = esperanza(modelo)       # de bgwModel.jl
+	q_extincion = probabilidad_extincion(modelo)  # usa biseccion de core/numericalMethods.jl
+	extincion_segura = es_extincion_segura(modelo) # de bgwModel.jl
 	
 	regimen = if m_esperanza < 1.0
 		"Subcrítico"
@@ -253,7 +253,7 @@ end
 md"""
 ### Trayectorias del Linaje — `simular_generaciones()`
 
-Cada trayectoria se genera llamando a `simular_generaciones(modelo, gen; poblacion_inicial=Z₀)` de `markovModels.jl`. Las rojas se extinguieron, las verdes sobrevivieron.
+Cada trayectoria se genera llamando a `simular_generaciones(modelo, gen; poblacion_inicial=Z₀)` de `bgwModel.jl`. Las rojas se extinguieron, las verdes sobrevivieron.
 """
 
 # ╔═╡ 00000002-0002-0002-0002-000000000020
@@ -303,7 +303,7 @@ Probabilidad teórica: **q = $(round(q_extincion, digits=4))** → frecuencia ob
 md"""
 ### Validación Monte Carlo — `frecuencia_extincion()`
 
-Comparemos la `probabilidad_extincion()` (teórica, bisección) contra `frecuencia_extincion()` (empírica, Monte Carlo). Ambas funciones están en `markovModels.jl`.
+Comparemos la `probabilidad_extincion()` (teórica, bisección) contra `frecuencia_extincion()` (empírica, Monte Carlo). Ambas funciones están en `bgwModel.jl`.
 """
 
 # ╔═╡ 00000002-0002-0002-0002-000000000024
@@ -433,15 +433,15 @@ md"""
 
 | Función | Archivo | Propósito |
 |:--|:--|:--|
-| `ModeloPBGW(λ)` / `ModeloPBGW(pk)` | `src/markovModels.jl` | Construir modelo con dist. Poisson o vector explícito |
-| `esperanza(modelo)` | `src/markovModels.jl` | Media de descendencia $m$ |
-| `es_extincion_segura(modelo)` | `src/markovModels.jl` | Verificar si $m \leq 1$ |
-| `fgp(modelo, t)` | `src/markovModels.jl` | Función generadora $g(t)$ |
-| `probabilidad_extincion(modelo)` | `src/markovModels.jl` | Resolver $g(t) = t$ con bisección |
-| `simular_generaciones(modelo, gen)` | `src/markovModels.jl` | Simular una trayectoria |
-| `frecuencia_extincion(modelo, gen)` | `src/markovModels.jl` | Monte Carlo: fracción de extintos |
-| `biseccion(h, a, b)` | `src/numericalMethods.jl` | Búsqueda de raíces (usado internamente) |
-| `secante(h, a, b)` | `src/numericalMethods.jl` | Búsqueda de raíces (alternativa) |
+| `ModeloPBGW(λ)` / `ModeloPBGW(pk)` | `src/bgwModel.jl` | Construir modelo con dist. Poisson o vector explícito |
+| `esperanza(modelo)` | `src/bgwModel.jl` | Media de descendencia $m$ |
+| `es_extincion_segura(modelo)` | `src/bgwModel.jl` | Verificar si $m \leq 1$ |
+| `fgp(modelo, t)` | `src/bgwModel.jl` | Función generadora $g(t)$ |
+| `probabilidad_extincion(modelo)` | `src/bgwModel.jl` | Resolver $g(t) = t$ con bisección |
+| `simular_generaciones(modelo, gen)` | `src/bgwModel.jl` | Simular una trayectoria |
+| `frecuencia_extincion(modelo, gen)` | `src/bgwModel.jl` | Monte Carlo: fracción de extintos |
+| `biseccion(h, a, b)` | `src/core/numericalMethods.jl` | Búsqueda de raíces (usado internamente) |
+| `secante(h, a, b)` | `src/core/numericalMethods.jl` | Búsqueda de raíces (alternativa) |
 
 **Conclusiones clave:**
 - Todo depende de $m$: si $m \leq 1$, extinción segura; si $m > 1$, supervivencia posible
@@ -451,262 +451,6 @@ md"""
 
 ---
 *Notebook interactivo para el proyecto [Evolución y Extinción de Apellidos](https://github.com/spartan14799/Evolucion-y-Extincion-de-apellidos)*
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000040
-md"""
----
-
-# Simulador: ¿Cuándo se extinguirán los apellidos de Colombia?
-## Proceso de Bienaymé-Galton-Watson con Datos Oficiales del Censo DANE 2018
-
-### Contexto demográfico real:
-En Colombia, según proyecciones y datos demográficos recientes (DANE y CEPAL), la tasa global de fecundidad ha caído a cerca de **1.2 - 1.5 hijos por mujer** (en varias regiones urbanas ya se sitúa en torno a 1.0).
-Dado que tradicionalmente el primer apellido lo transmiten los hijos varones:
-- Si una mujer tiene en promedio 1 hijo, aproximadamente **0.5 son varones**.
-- Por lo tanto, cada hombre que porta el apellido engendra en promedio **$\lambda \approx 0.5$ hijos varones** que continuarán su linaje.
-- Dado que $m = \lambda = 0.5 \le 1$, el linaje se encuentra en **régimen subcrítico**: **la extinción matemática es 100% segura ($q = 1$)**.
-
-La pregunta fundamental ya no es *si* se va a extinguir, sino: **¿en cuántas generaciones ocurrirá la extinción para los apellidos más populosos de Colombia?**
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000041
-md"**Selecciona un apellido de Colombia:** $(@bind ap_col_select Select([\"Rodríguez\" => \"1. Rodríguez (754.991 personas)\", \"Martínez\" => \"2. Martínez (602.593 personas)\", \"García\" => \"3. García (574.856 personas)\", \"Gómez\" => \"4. Gómez (569.534 personas)\", \"López\" => \"5. López (565.394 personas)\", \"Hernández\" => \"6. Hernández (502.626 personas)\", \"Pérez\" => \"7. Pérez (493.764 personas)\", \"Sánchez\" => \"8. Sánchez (487.112 personas)\", \"González\" => \"9. González (470.505 personas)\", \"Ramírez\" => \"10. Ramírez (441.179 personas)\"], default=\"Rodríguez\"))"
-
-# ╔═╡ 00000002-0002-0002-0002-000000000042
-md"**Tasa de natalidad masculina $\lambda$** (hijos varones promedio por hombre): $(@bind lambda_col_slider Slider(0.1:0.05:1.2, default=0.5, show_value=true))"
-
-# ╔═╡ 00000002-0002-0002-0002-000000000043
-md"**Evaluar probabilidad de extinción acumulada a las generaciones ($X$):** $(@bind gen_eval_slider Slider(5:1:40, default=20, show_value=true))"
-
-# ╔═╡ 00000002-0002-0002-0002-000000000044
-md"**Simulaciones Monte Carlo:** $(@bind n_sims_col_slider Slider(50:25:500, default=100, show_value=true))"
-
-# ╔═╡ 00000002-0002-0002-0002-000000000045
-md"**Semilla aleatoria:** $(@bind semilla_col_slider Slider(1:100, default=42, show_value=true))"
-
-# ╔═╡ 00000002-0002-0002-0002-000000000046
-begin
-	apellidos_colombia = [
-		"Rodríguez", "Martínez", "García", "Gómez", "López",
-		"Hernández", "Pérez", "Sánchez", "González", "Ramírez"
-	]
-	conteos_dane = [754991, 602593, 574856, 569534, 565394, 502626, 493764, 487112, 470505, 441179]
-	dane_dict = Dict(zip(apellidos_colombia, conteos_dane))
-	
-	z0_seleccionado = dane_dict[ap_col_select]
-	
-	# Instanciamos el modelo de Bienaymé-Galton-Watson llamando a ModeloPBGW de src/markovModels.jl
-	modelo_colombia = ModeloPBGW(lambda_col_slider; max_hijos = 15)
-	
-	# Tabla comparativa resaltando el apellido activo (sin emojis)
-	filas_tabla = [
-		"| Puesto | Apellido | Portadores DANE 2018 (\$Z_0\$) | Estado en Simulación |",
-		"|:---|:---|:---|:---|"
-	]
-	for (idx, (ap, cnt)) in enumerate(zip(apellidos_colombia, conteos_dane))
-		marca = ap == ap_col_select ? "**SELECCIONADO**" : "En espera"
-		ap_fmt = ap == ap_col_select ? "**$ap**" : ap
-		push!(filas_tabla, "| $idx | $ap_fmt | $(cnt) | $marca |")
-	end
-	Markdown.parse(join(filas_tabla, "\n"))
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000047
-md"""
-### Trucos Numéricos y Tipo de Monte Carlo Utilizado
-
-#### 1. Implementación Canónica del Código Fuente vs. Propiedad Reproductiva de Poisson
-En el código fuente (`src/markovModels.jl`), la función `simular_generaciones` itera individuo por individuo sorteando su descendencia a través de la distribución categórica discreta `Categorical(modelo.pk)`:
-```julia
-# Enfoque canónico del código fuente (src/markovModels.jl):
-for _ in 1:poblacion
-    hijos_totales += rand(rng, dist_hijos) - 1
-end
-```
-**El truco matemático para optimización analítica:**
-Cuando la descendencia individual sigue una distribución de Poisson con media $\lambda$ ($X_i \stackrel{iid}{\sim} \text{Poisson}(\lambda)$), aprovechamos la **propiedad reproductiva de Poisson**: la suma de variables Poisson independientes es idéntica en distribución a una Poisson con la suma de las medias:
-$$\sum_{i=1}^{Z_n} X_i \sim \text{Poisson}(Z_n \cdot \lambda)$$
-Esto permite que para poblaciones grandes como las del Censo DANE ($Z_0 \approx 750.000$), la distribución exacta pueda generarse tanto sumando los individuos como evaluando directamente en tiempo $O(1)$. Ambas formulaciones son matemáticamente equivalentes y convergen a los mismos estimadores estadísticos.
-
-#### 2. ¿Qué tipo de Monte Carlo usamos? (Forward MC vs MCMC)
-- **Monte Carlo Directo / Hacia Adelante (Forward Monte Carlo):** Es el método empleado en este módulo. Simulamos realizaciones estocásticas directas del proceso temporal $\{Z_n\}_{n \ge 0}$ a lo largo de las generaciones hacia el futuro partiendo del estado conocido $Z_0$.
-- **¿Por qué NO usamos MCMC (Markov Chain Monte Carlo - Metropolis/Gibbs)?**
-  MCMC se utiliza para muestrear de una distribución estacionaria $\pi$ compleja o una distribución a posteriori bayesiana. En un proceso de ramificación subcrítico ($\lambda < 1$), los estados $\{1, 2, \dots\}$ son **transitorios** y el único estado recurrente es el $0$ (absorbente). No hay una distribución estacionaria no nula; el interés radica en la **trayectoria dinámica de extinción**, la cual se modela mediante Forward Monte Carlo con `simular_generaciones` de `src/markovModels.jl`.
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000048
-begin
-	# Simulación Monte Carlo llamando directamente a las funciones de src/markovModels.jl
-	function correr_montecarlo_colombia(modelo::ModeloPBGW, z0::Int, n_sims::Int, gen_eval::Int, semilla::Int)
-		rng = MersenneTwister(semilla)
-		max_gen_sim = max(gen_eval + 15, 35)
-		tiempos_ext = Int[]
-		trayectorias_muestra = Vector{Vector{Int}}()
-		extintos_en_X = 0
-		
-		for s in 1:n_sims
-			# Llamada directa al método fuente simular_generaciones
-			traj = simular_generaciones(modelo, max_gen_sim; poblacion_inicial = z0, rng = rng)
-			if s <= 6
-				push!(trayectorias_muestra, copy(traj))
-			end
-			idx_cero = findfirst(==(0), traj)
-			if idx_cero !== nothing
-				gen_ext = idx_cero - 1
-				push!(tiempos_ext, gen_ext)
-				if gen_ext <= gen_eval
-					extintos_en_X += 1
-				end
-			end
-		end
-		
-		prob_ext_X = extintos_en_X / n_sims
-		mediana_ext = isempty(tiempos_ext) ? 0 : round(Int, median(tiempos_ext))
-		media_ext = isempty(tiempos_ext) ? 0.0 : mean(tiempos_ext)
-		
-		return (
-			tiempos_ext = tiempos_ext,
-			trayectorias_muestra = trayectorias_muestra,
-			extintos_en_X = extintos_en_X,
-			prob_ext_X = prob_ext_X,
-			mediana_ext = mediana_ext,
-			media_ext = media_ext,
-			max_gen_sim = max_gen_sim
-		)
-	end
-
-	res_sim_col = correr_montecarlo_colombia(modelo_colombia, z0_seleccionado, n_sims_col_slider, gen_eval_slider, semilla_col_slider)
-	tiempos_ext = res_sim_col.tiempos_ext
-	trayectorias_muestra = res_sim_col.trayectorias_muestra
-	extintos_en_X = res_sim_col.extintos_en_X
-	prob_ext_X = res_sim_col.prob_ext_X
-	mediana_ext = res_sim_col.mediana_ext
-	media_ext = res_sim_col.media_ext
-	max_gen_sim = res_sim_col.max_gen_sim
-	
-	# Validación teórica llamando directamente a src/markovModels.jl
-	m_esp = esperanza(modelo_colombia)
-	es_segura = es_extincion_segura(modelo_colombia)
-	q_teorico = probabilidad_extincion(modelo_colombia)
-	
-	# Estimación teórica continua aproximada: T ≈ ln(Z0) / ln(1/m)
-	t_teorico = m_esp < 1.0 ? log(z0_seleccionado) / log(1.0 / m_esp) : Inf
-	
-	md"""
-	### Resultados del Monte Carlo para **$(ap_col_select)**
-	
-	| Métrica | Valor Estimado | Significado y Validación Teórica (markovModels.jl) |
-	|:---|:---|:---|
-	| **Población Inicial ($Z_0$)** | **$(z0_seleccionado)** | Portadores según Censo DANE 2018 |
-	| **Esperanza de descendencia ($m = E[X]$)** | **$(round(m_esp, digits=3))** | Evaluado con `esperanza(modelo)` |
-	| **Régimen del Proceso** | **$(es_segura ? "Subcrítico / Crítico (m ≤ 1.0)" : "Supercrítico (m > 1.0)")** | Evaluado con `es_extincion_segura(modelo)` |
-	| **Probabilidad teórica asintótica ($q$)** | **$(round(q_teorico * 100, digits=2))%** | Calculado con `probabilidad_extincion(modelo)` |
-	| **Probabilidad de extinción en $\le $(gen_eval_slider) generaciones** | <span style="font-size:1.3em; font-weight:bold; color:$(prob_ext_X > 0.5 ? "crimson" : "steelblue");">$(round(prob_ext_X * 100, digits=2))%</span> | Fracción observada en Monte Carlo con `simular_generaciones` |
-	| **Generación Mediana de Extinción** | **Gen $(mediana_ext)** (~$(mediana_ext * 28) años) | El 50% de las realizaciones estocásticas se extinguieron antes de este año |
-	| **Generación Media de Extinción** | **Gen $(round(media_ext, digits=1))** | Promedio aritmético de las simulaciones |
-	| **Aproximación Teórica Determinista** | **Gen $(round(t_teorico, digits=1))** | Fórmula de decaimiento geométrico: $T \approx \frac{\ln(Z_0)}{\ln(1/m)}$ |
-	"""
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000049
-begin
-	# Histograma de Tiempos de Extinción
-	if !isempty(tiempos_ext)
-		p_hist_ext = histogram(
-			tiempos_ext,
-			bins = range(minimum(tiempos_ext)-0.5, maximum(tiempos_ext)+0.5, step=1),
-			xlabel = "Generación de Extinción (1 gen ≈ 25 - 30 años)",
-			ylabel = "Frecuencia de Simulaciones",
-			title = "Distribución del Tiempo de Extinción para $(ap_col_select) (n=$(n_sims_col_slider))",
-			color = "#e53935", alpha = 0.75, legend = :topright,
-			size = (800, 380)
-		)
-		vline!(p_hist_ext, [mediana_ext], label = "Mediana = Gen $(mediana_ext)", color = :black, linewidth = 2.5, linestyle = :dash)
-		vline!(p_hist_ext, [gen_eval_slider], label = "Umbral evaluado X = Gen $(gen_eval_slider) ($(round(prob_ext_X*100, digits=1))% extinto)", color = :blue, linewidth = 2)
-		p_hist_ext
-	else
-		plot(title="No hubo extinciones (λ >= 1.0)")
-	end
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000050
-begin
-	# Trayectorias en Escala Logarítmica
-	p_log = plot(
-		xlabel = "Generación", ylabel = "Portadores (escala log10)",
-		title = "Decaimiento Estocástico de Linajes — $(ap_col_select) ($(@sprintf("%.2f", lambda_col_slider)) varones/varón)",
-		yaxis = :log10, size = (800, 400), legend = :bottomleft,
-		grid = true, gridstyle = :dash, gridalpha = 0.3
-	)
-	
-	# Curva esperada E[Z_n] = Z0 * lambda^n
-	gens_curva = 0:min(max_gen_sim, 35)
-	curva_esperada = [max(1.0, z0_seleccionado * (lambda_col_slider^g)) for g in gens_curva]
-	plot!(p_log, gens_curva, curva_esperada, label = "Media esperada E[Z_n] = Z₀ · λⁿ", color = :black, linewidth = 2.5, linestyle = :dash)
-	
-	for (idx, tr) in enumerate(trayectorias_muestra)
-		tr_plot = [max(0.5, Float64(x)) for x in tr]
-		plot!(p_log, 0:(length(tr_plot)-1), tr_plot, label = idx == 1 ? "Simulaciones individuales" : false, alpha = 0.7, linewidth = 1.5)
-	end
-	hline!(p_log, [1.0], label = "1 portador (umbral crítico)", color = :red, linestyle = :dot, linewidth = 1.5)
-	p_log
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000051
-begin
-	# Comparativa de los 10 apellidos llamando directamente a simular_generaciones de src/markovModels.jl
-	function calcular_medianas_10(modelo::ModeloPBGW)
-		tiempos_medios = Float64[]
-		rng_comp = MersenneTwister(123)
-		for cnt in conteos_dane
-			tiempos_i = Int[]
-			for _ in 1:30
-				traj_i = simular_generaciones(modelo, 35; poblacion_inicial = cnt, rng = rng_comp)
-				idx_0 = findfirst(==(0), traj_i)
-				push!(tiempos_i, idx_0 !== nothing ? idx_0 - 1 : 36)
-			end
-			push!(tiempos_medios, median(tiempos_i))
-		end
-		return tiempos_medios
-	end
-
-	tiempos_medios_10 = calcular_medianas_10(modelo_colombia)
-	colores_barras = [ap == ap_col_select ? "#e53935" : "#1e88e5" for ap in apellidos_colombia]
-	
-	# Orden inverso para que Rodríguez (Puesto 1) aparezca arriba y se lean bien los nombres
-	indices_bar = 1:10
-	aps_rev = reverse(apellidos_colombia)
-	tiempos_rev = reverse(tiempos_medios_10)
-	colores_rev = reverse(colores_barras)
-
-	p_comp = bar(
-		indices_bar, tiempos_rev,
-		orientation = :horizontal,
-		yticks = (indices_bar, aps_rev),
-		xlabel = "Generaciones estimadas hasta extinción",
-		ylabel = "Apellido",
-		title = "¿Cuánto tarda en extinguirse cada apellido? (λ = $(@sprintf("%.2f", lambda_col_slider)))",
-		color = colores_rev, alpha = 0.85, legend = false,
-		size = (800, 420), xlims = (0, maximum(tiempos_medios_10) * 1.35)
-	)
-	
-	for (idx, t_med) in enumerate(tiempos_rev)
-		annotate!(p_comp, t_med + 0.4, idx, text("Gen $(round(Int, t_med)) (~$(round(Int, t_med*28)) años)", 8, :left, :black, Sys.iswindows() ? "arialbd" : "sans-serif"))
-	end
-	p_comp
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000052
-md"""
-> [!TIP]
-> **La paradoja de los apellidos masivos:**
-> Observa que **Rodríguez** (754.991 personas) tarda aproximadamente **20 generaciones** en extinguirse, mientras que **Ramírez** (441.179 personas, con más de 300.000 portadores menos) se extingue en **19 generaciones**.
-> 
-> **¿Por qué solo hay 1 generación de diferencia con 300.000 personas de ventaja?**
-> Porque en un proceso de ramificación subcrítico, la población decae **geométricamente** ($Z_n \approx Z_0 \lambda^n$). Al despejar el tiempo de extinción:
-> $$T_{\text{ext}} \approx \frac{\ln(Z_0)}{\ln(1/\lambda)}$$
-> El tiempo crece con el **logaritmo** de la población inicial: ¡duplicar la cantidad de portadores apenas le otorga al apellido **una generación más de vida**!
 """
 
 # ╔═╡ 00000002-0002-0002-0002-000000000060
@@ -736,10 +480,13 @@ md"**Tope de estados a visualizar ($M$):** $(@bind M_slider Slider(4:1:12, defau
 # ╔═╡ 00000002-0002-0002-0002-000000000063
 md"**Estado inicial $Z_0$ para la cadena:** $(@bind z0_markov_slider Slider(1:1:8, default=2, show_value=true))"
 
+# ╔═╡ 00000002-0002-0002-0002-000000000074
+md"**Tasa de natalidad $\lambda$ (media de hijos) para la cadena:** $(@bind lambda_markov_slider Slider(0.1:0.05:1.5, default=0.5, show_value=true))"
+
 # ╔═╡ 00000002-0002-0002-0002-000000000064
 begin
 	M_dim = M_slider
-	lambda_p = lambda_col_slider
+	lambda_p = lambda_markov_slider
 	P_mat = zeros(Float64, M_dim + 1, M_dim + 1)
 	
 	# Fila 0: Estado absorbente
@@ -813,7 +560,7 @@ begin
 	P_toy = zeros(Float64, M_toy + 1, M_toy + 1)
 	P_toy[1, 1] = 1.0
 	for i in 1:M_toy
-		m_toy_i = ModeloPBGW(i * lambda_col_slider; max_hijos = M_toy)
+		m_toy_i = ModeloPBGW(i * lambda_markov_slider; max_hijos = M_toy)
 		for j in 0:(M_toy - 1)
 			P_toy[i + 1, j + 1] = m_toy_i.pk[j + 1]
 		end
@@ -829,7 +576,7 @@ begin
 		size = (880, 430),
 		xlims = (-1.8, 11.4), ylims = (-3.2, 3.4),
 		aspect_ratio = :equal,
-		title = "Grafo Dirigido de Transiciones de Estados (Ejemplo M=3, λ = $(@sprintf("%.2f", lambda_col_slider)))",
+		title = "Grafo Dirigido de Transiciones de Estados (Ejemplo M=3, λ = $(@sprintf("%.2f", lambda_markov_slider)))",
 		legend = false, grid = false, framestyle = :none
 	)
 	
@@ -1109,23 +856,11 @@ Imagina la cadena de Markov de Galton-Watson como un modelo dinámico paso a pas
 # ╟─00000002-0002-0002-0002-000000000030
 # ╟─00000002-0002-0002-0002-000000000031
 # ╟─00000002-0002-0002-0002-000000000032
-# ╟─00000002-0002-0002-0002-000000000040
-# ╟─00000002-0002-0002-0002-000000000041
-# ╟─00000002-0002-0002-0002-000000000042
-# ╟─00000002-0002-0002-0002-000000000043
-# ╟─00000002-0002-0002-0002-000000000044
-# ╟─00000002-0002-0002-0002-000000000045
-# ╟─00000002-0002-0002-0002-000000000046
-# ╟─00000002-0002-0002-0002-000000000047
-# ╟─00000002-0002-0002-0002-000000000048
-# ╟─00000002-0002-0002-0002-000000000049
-# ╟─00000002-0002-0002-0002-000000000050
-# ╟─00000002-0002-0002-0002-000000000051
-# ╟─00000002-0002-0002-0002-000000000052
 # ╟─00000002-0002-0002-0002-000000000060
 # ╟─00000002-0002-0002-0002-000000000061
 # ╟─00000002-0002-0002-0002-000000000062
 # ╟─00000002-0002-0002-0002-000000000063
+# ╟─00000002-0002-0002-0002-000000000074
 # ╟─00000002-0002-0002-0002-000000000064
 # ╟─00000002-0002-0002-0002-000000000065
 # ╟─00000002-0002-0002-0002-000000000072
