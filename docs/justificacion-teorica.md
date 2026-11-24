@@ -50,7 +50,7 @@ donde `p_k` es la probabilidad de que un portador tenga exactamente `k` hijos.
 Se cumple que todas son no negativas y suman 1.
 
 En el código, esto es el vector `pk` de la estructura `ModeloPBGW`
-(`src/markovModels.jl`). Por convención de indexado en Julia:
+(`src/bgwModel.jl`). Por convención de indexado en Julia:
 
 - `pk[1]` = P(0 hijos)
 - `pk[2]` = P(1 hijo)
@@ -126,7 +126,7 @@ $$g(q) = q$$
 ### Conexión con los métodos numéricos
 
 Encontrar `q` equivale a **resolver una ecuación no lineal**, que es exactamente
-el propósito de `src/numericalMethods.jl`. Reescribimos el punto fijo como una
+el propósito de `src/core/numericalMethods.jl`. Reescribimos el punto fijo como una
 búsqueda de raíz definiendo:
 
 $$h(t) = g(t) - t$$
@@ -218,14 +218,14 @@ Resultados observados en el proyecto:
 
 | Concepto matemático | Función / tipo | Archivo |
 |---|---|---|
-| Distribución de descendencia `p_k` | `ModeloPBGW` | `src/markovModels.jl` |
-| Media `m = E[X]` | `esperanza` | `src/markovModels.jl` |
-| Criterio `m ≤ 1` | `es_extincion_segura` | `src/markovModels.jl` |
-| FGP `g(t)` | `fgp` | `src/markovModels.jl` |
-| Probabilidad de extinción `q` | `probabilidad_extincion` | `src/markovModels.jl` |
-| Simulación de una trayectoria | `simular_generaciones` | `src/markovModels.jl` |
-| Estimación Monte Carlo de `q` | `frecuencia_extincion` | `src/markovModels.jl` |
-| Búsqueda de raíces | `biseccion`, `newton`, `secante` | `src/numericalMethods.jl` |
+| Distribución de descendencia `p_k` | `ModeloPBGW` | `src/bgwModel.jl` |
+| Media `m = E[X]` | `esperanza` | `src/bgwModel.jl` |
+| Criterio `m ≤ 1` | `es_extincion_segura` | `src/bgwModel.jl` |
+| FGP `g(t)` | `fgp` | `src/bgwModel.jl` |
+| Probabilidad de extinción `q` | `probabilidad_extincion` | `src/bgwModel.jl` |
+| Simulación de una trayectoria | `simular_generaciones` | `src/bgwModel.jl` |
+| Estimación Monte Carlo de `q` | `frecuencia_extincion` | `src/bgwModel.jl` |
+| Búsqueda de raíces | `biseccion`, `newton`, `secante` | `src/core/numericalMethods.jl` |
 
 El flujo esencial: `probabilidad_extincion` envuelve `fgp` en `h(t) = g(t) − t`
 y se la entrega a `biseccion` / `secante` de `numericalMethods.jl` para hallar

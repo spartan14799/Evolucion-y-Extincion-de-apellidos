@@ -4,10 +4,10 @@ Modelo de evolución y extinción de apellidos sobre un grafo. Esta nota describ
 las reglas, los modos de probabilidad, el criterio exacto de parada, el mapeo al
 código y el catálogo de experimentos con sus hipótesis.
 
-El motor vive en [`src/modeloParejas.jl`](../src/modeloParejas.jl); las
-topologías en [`src/graphTopologies.jl`](../src/graphTopologies.jl); las
-métricas y el runner en [`src/experimentos.jl`](../src/experimentos.jl); la
-graficación en [`src/visualizacion.jl`](../src/visualizacion.jl). El catálogo
+El motor vive en [`src/coupleModel.jl`](../src/coupleModel.jl); las
+topologías en [`src/core/graphTopologies.jl`](../src/core/graphTopologies.jl); las
+métricas y el runner en [`src/core/experimentMetrics.jl`](../src/core/experimentMetrics.jl); la
+graficación en [`src/core/visualization.jl`](../src/core/visualization.jl). El catálogo
 reproducible a disco está en
 [`scripts/experimentos_parejas.jl`](../scripts/experimentos_parejas.jl).
 
@@ -121,7 +121,7 @@ De ahí el criterio exacto, implementado en `hay_parejas_mixtas_posibles`:
 | `apellidos_final` | apellidos vivos al final |
 | `transitorio` | se cortó por tope con parejas mixtas aún posibles |
 
-### Generadores de topología (`src/graphTopologies.jl`)
+### Generadores de topología (`src/core/graphTopologies.jl`)
 
 `topo_completo(n)`, `topo_cadena(n)`, `topo_anillo(n)`, `topo_estrella(n;
 centro)`, `topo_grid(filas, cols)`, `topo_bipartito(gA, gB; cruzado)`,
@@ -129,7 +129,7 @@ centro)`, `topo_grid(filas, cols)`, `topo_bipartito(gA, gB; cruzado)`,
 devuelven el `Dict{Int,Vector{Int}}` de adyacencia y por defecto incluyen el
 auto-lazo `i -> i`.
 
-### Métricas (`src/experimentos.jl`)
+### Métricas (`src/core/experimentMetrics.jl`)
 
 | Métrica | Función |
 |:--|:--|
