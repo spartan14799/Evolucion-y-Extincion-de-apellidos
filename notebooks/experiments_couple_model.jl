@@ -23,10 +23,10 @@ begin
     using Random, StatsBase, Plots, PlutoUI, Printf
 
     # Motor del modelo por parejas y utilidades del proyecto.
-    include(joinpath(@__DIR__, "..", "src", "modeloParejas.jl"))
-    include(joinpath(@__DIR__, "..", "src", "graphTopologies.jl"))
-    include(joinpath(@__DIR__, "..", "src", "experimentos.jl"))
-    include(joinpath(@__DIR__, "..", "src", "visualizacion.jl"))
+    include(joinpath(@__DIR__, "..", "src", "coupleModel.jl"))
+    include(joinpath(@__DIR__, "..", "src", "core", "graphTopologies.jl"))
+    include(joinpath(@__DIR__, "..", "src", "core", "experimentMetrics.jl"))
+    include(joinpath(@__DIR__, "..", "src", "core", "visualization.jl"))
     md"Entorno y modulos cargados."
 end
 

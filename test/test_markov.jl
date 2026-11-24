@@ -12,8 +12,8 @@ using Test
 using Random
 using Printf
 
-include(joinpath(@__DIR__, "..", "src", "numericalMethods.jl"))
-include(joinpath(@__DIR__, "..", "src", "markovModels.jl"))
+include(joinpath(@__DIR__, "..", "src", "core", "numericalMethods.jl"))
+include(joinpath(@__DIR__, "..", "src", "bgwModel.jl"))
 
 # ---------------------------------------------------------------------
 # Utilidad para mostrar el progreso en vivo. Imprime el nombre del bloque

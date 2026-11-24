@@ -23,10 +23,10 @@ begin
 	using Random, Distributions, Plots, PlutoUI, Printf
 
 	# ── Cargamos los módulos del proyecto tal cual están en src/ ──
-	include(joinpath(@__DIR__, "..", "src", "numericalMethods.jl"))
+	include(joinpath(@__DIR__, "..", "src", "core", "numericalMethods.jl"))
 	# Esto nos da: biseccion, newton, secante
 
-	include(joinpath(@__DIR__, "..", "src", "markovModels.jl"))
+	include(joinpath(@__DIR__, "..", "src", "bgwModel.jl"))
 	# Esto nos da: ModeloPBGW, esperanza, es_extincion_segura, fgp,
 	#              probabilidad_extincion, simular_generaciones, frecuencia_extincion
 end

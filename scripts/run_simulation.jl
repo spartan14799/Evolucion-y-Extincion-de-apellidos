@@ -9,8 +9,8 @@
 using Random
 using Printf
 
-include(joinpath(@__DIR__, "..", "src", "numericalMethods.jl"))
-include(joinpath(@__DIR__, "..", "src", "markovModels.jl"))
+include(joinpath(@__DIR__, "..", "src", "core", "numericalMethods.jl"))
+include(joinpath(@__DIR__, "..", "src", "bgwModel.jl"))
 
 function resumen_modelo(nombre, modelo)
     m = esperanza(modelo)

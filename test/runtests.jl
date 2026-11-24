@@ -11,7 +11,7 @@
 using Test
 
 # Carga las funciones a probar (biseccion, newton, secante).
-include(joinpath(@__DIR__, "..", "src", "numericalMethods.jl"))
+include(joinpath(@__DIR__, "..", "src", "core", "numericalMethods.jl"))
 
 # Tolerancia con la que comparamos la raiz encontrada contra la raiz exacta.
 # Es un orden de magnitud mas holgada que el `epsilon`/`delta` por defecto
