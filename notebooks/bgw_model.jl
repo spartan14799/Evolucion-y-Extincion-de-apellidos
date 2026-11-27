@@ -30,23 +30,21 @@ begin
 	# Esto nos da: ModeloPBGW, esperanza, es_extincion_segura, fgp,
 	#              probabilidad_extincion, simular_generaciones, frecuencia_extincion
 
-	# ══════════════════════════════════════════════════════════════
+	
 	# Constantes y utilidades compartidas por todo el cuaderno
-	# ══════════════════════════════════════════════════════════════
 
-	# Duración generacional supuesta, en años. Es un supuesto del modelo (sección 8
-	# del encabezado), no un dato observado.
+	# Duración en años de una generación supuesta
 	anios_por_generacion = 28
 
-	# Fuente en negrita para las anotaciones dentro de las gráficas.
+	# Fuente en negrita para las anotaciones dentro de las graficas.
 	fuente_negrita = Sys.iswindows() ? "arialbd" : "sans-serif"
 
-	# Formato de miles con punto, según la convención en español: 754991 → "754.991"
+	# Formato de miles con punto
 	fmt_miles(n::Integer) = replace(string(n), r"(?<=\d)(?=(\d{3})+$)" => ".")
 
 	# Clasifica el régimen según la media de descendencia m = Σ k·pₖ.
 	# La tolerancia es simétrica alrededor de m = 1 para absorber el error de
-	# redondeo en punto flotante de la suma que calcula `esperanza`.
+	# redondeo en punto flotante de la suma que calcula funcion: "esperanza".
 	function clasificar_regimen(m::Real; tol::Real = 1e-6)
 		if isapprox(m, 1.0; atol = tol)
 			return "Crítico"
@@ -79,7 +77,8 @@ begin
 	prob_extincion_hasta(modelo::ModeloPBGW, n::Int, z0::Int) =
 		prob_extincion_curva(modelo, n, z0)[end]
 
-	# Mediana exacta del tiempo de extinción T: menor n tal que P(T ≤ n) ≥ 1/2.
+	# Cuantas generaciones tiene que pasar para haya al menos una probabilidad del
+	# 50% de que ya se haya extinguido.
 	# Devuelve `nothing` si no se alcanza en n_max generaciones (p. ej. si la
 	# extinción no es segura, o si m está muy cerca de 1 y z0 es muy grande).
 	function mediana_extincion_teorica(modelo::ModeloPBGW, z0::Int; n_max::Int = 20_000)
@@ -102,13 +101,11 @@ md"""
 
 ---
 
-### Resumen
-
-Este cuaderno estudia el **proceso de ramificación de Bienaymé–Galton–Watson** (PBGW) como una **cadena de Markov en tiempo discreto** sobre los enteros no negativos, y lo aplica al problema que motivó su introducción en el siglo XIX: determinar si un linaje que se transmite por línea paterna, como un apellido, se **extingue** o **persiste**. Bienaymé (1845) y, de forma independiente, Galton y Watson (1875) formularon el modelo para analizar la desaparición de apellidos aristocráticos.
+Este cuaderno estudia el **proceso de ramificación de Bienaymé–Galton–Watson** (PBGW) como una **cadena de Markov en tiempo discreto** sobre los enteros no negativos, y lo aplica al problema que motivó su introducción en el siglo XIX: determinar si un linaje que se transmite por línea paterna, como un apellido, se **extingue** o **persiste** en el tiempo. Bienaymé (1845) y, de forma independiente, Galton y Watson (1875) formularon el modelo para analizar la desaparición de apellidos aristocráticos.
 
 El cuaderno combina tres elementos:
 
-1. **Fundamento teórico** (esta primera parte): definición del proceso, su caracterización como cadena de Markov (espacio de estados, distribución inicial y matriz de transición $P$), la función generadora de probabilidad (FGP) como herramienta de cálculo y el teorema de extinción.
+1. **Fundamento teórico.** Definición del proceso, su caracterización como cadena de Markov (espacio de estados, distribución inicial y matriz de transición $P$), la función generadora de probabilidad (FGP) como herramienta de cálculo y el teorema de extinción.
 2. **Verificación computacional.** Cada resultado teórico se contrasta con las funciones del proyecto (`src/markovModels.jl` y `src/numericalMethods.jl`) y con simulación Monte Carlo.
 3. **Aplicación a los apellidos más frecuentes de Colombia**, con la matriz de transición construida de forma explícita.
 
@@ -135,7 +132,7 @@ md"""
 
 ### 1. Definición del proceso
 
-Sea $\{X_{n,i}\}_{n \ge 0,\; i \ge 1}$ una familia de variables aleatorias independientes e idénticamente distribuidas (i.i.d.) con valores en $\mathbb{N}_0 = \{0, 1, 2, \dots\}$ y ley común
+Sea $\{X_{n,i}\}_{n \ge 0,\; i \ge 1}$ una familia de variables aleatorias independientes e idénticamente distribuidas (i.i.d.) con valores en $\mathbb{N} = \{0, 1, 2, \dots\}$ y ley común
 
 $$p_k = \mathbb{P}(X = k), \qquad k \ge 0, \qquad \sum_{k \ge 0} p_k = 1 .$$
 
@@ -143,14 +140,14 @@ A $\{p_k\}$ se le llama **ley de descendencia**. La variable $X_{n,i}$ es el nú
 
 $$Z_0 = z_0, \qquad Z_{n+1} = \sum_{i=1}^{Z_n} X_{n,i}, \qquad n \ge 0,$$
 
-con la convención de que una suma vacía vale $0$. $Z_n$ es el número de individuos de la generación $n$; en este trabajo, el número de portadores del apellido.
+con la convención de que una suma vacía vale $0$. $Z_n$ es el número de individuos de la generación $n$; para nuestro caso, el número de portadores del apellido.
 
-**Observación (qué es y qué no es la cadena de Markov).** El objeto markoviano no es el árbol genealógico completo, sino la sucesión de **tamaños generacionales** $\{Z_n\}$. El árbol contiene más información (quién es hijo de quién), que es irrelevante para la pregunta de extinción.
+**Observación (qué es y qué no es la cadena de Markov).** El objeto a analizar como cadena de Markov no es el árbol genealógico completo, sino la sucesión de **tamaños generacionales** $\{Z_n\}$. El árbol contiene más información (quién es hijo de quién), que es irrelevante para la pregunta de extinción.
 
 **Hipótesis.**
 
 * (H1) Las variables $X_{n,i}$ son independientes entre individuos y entre generaciones: lo que le ocurre a un individuo no afecta la descendencia de los demás.
-* (H2) Todas tienen la misma ley $\{p_k\}$: no hay heterogeneidad entre individuos ni cambios en el tiempo.
+* (H2) Todas tienen la misma ley $\{p_k\}$: La cadena es homogénea.
 * (H3) La media $m = \mathbb{E}[X] = \sum_k k\,p_k$ es finita.
 * (H4, no degeneración) $p_1 < 1$. Si $p_1 = 1$, cada individuo tiene exactamente un hijo, $Z_n \equiv z_0$ y no hay extinción.
 
@@ -176,17 +173,17 @@ Una cadena de Markov homogénea en tiempo discreto queda completamente caracteri
 
 #### 2.1 Espacio de estados
 
-$$S = \mathbb{N}_0 = \{0, 1, 2, \dots\},$$
+$$S = \mathbb{N} = \{0, 1, 2, \dots\},$$
 
 donde el estado $i$ significa "la generación actual tiene exactamente $i$ individuos".
 
 #### 2.2 Distribución inicial
 
-El proceso comienza con $z_0$ individuos de forma determinista, así que la distribución inicial es la masa puntual en $z_0$:
+El proceso comienza con $z_0$ individuos de forma determinista, así que la distribución inicial es concentrar toda la probabilidad en $z_0$:
 
 $$\mu_0 = \delta_{z_0}, \qquad \text{es decir,} \qquad \mathbb{P}(Z_0 = z_0) = 1 .$$
 
-Lo habitual es $z_0 = 1$ (un único ancestro). En el cuaderno, $\mu_0$ se representa como un vector fila $\pi_0$ con un $1$ en la posición $z_0$ y ceros en las demás. En general $\mu_0$ podría ser cualquier distribución sobre $S$; la masa puntual es el caso estándar.
+Lo habitual es $z_0 = 1$ (un único ancestro). En el cuaderno, $\mu_0$ se representa como un vector fila $\pi_0$ con un $1$ en la posición $z_0$ y ceros en las demás.
 
 #### 2.3 Matriz de transición
 
@@ -234,31 +231,22 @@ md"""
 
 #### 3.1 Definición
 
-Para una variable aleatoria $X$ con valores en $\mathbb{N}_0$ y $p_k = \mathbb{P}(X = k)$, su **función generadora de probabilidad** es
+Para una variable aleatoria $X$ con valores en $\mathbb{N}$ y $p_k = \mathbb{P}(X = k)$, su **función generadora de probabilidad** es
 
 $$g(t) = \mathbb{E}[t^X] = \sum_{k=0}^{\infty} p_k\, t^k, \qquad t \in [0,1].$$
 
-Es una serie de potencias cuyos **coeficientes son las probabilidades**: contiene exactamente la misma información que la sucesión $\left(p_0, p_1, p_2, \dots\right)$, empaquetada como un polinomio. De $g$ se recupera la ley mediante $p_k = g^{(k)}(0)/k!$. La variable $t$ no representa ningún valor aleatorio: solo marca la posición $k$ de cada coeficiente.
+Es una serie de potencias cuyos **coeficientes son las probabilidades**: contiene exactamente la misma información que la sucesión $\left(p_0, p_1, p_2, \dots\right)$, escrita como un polinomio. La variable $t$ no representa ningún valor aleatorio: solo marca la posición $k$ de cada coeficiente.
 
-#### 3.2 Relación con la función generadora de momentos
-
-La función generadora de momentos es $M_X(s) = \mathbb{E}[e^{sX}]$. Con el cambio de variable $t = e^{s}$,
-
-$$M_X(s) = g(e^{s}).$$
-
-Son la misma herramienta con distinta parametrización. La FGP resulta más cómoda cuando $X$ toma valores enteros no negativos, como ocurre con los tamaños de población.
-
-#### 3.3 Propiedades que se leen directamente
+#### 3.2 Propiedades que se leen directamente
 
 | Propiedad | Consecuencia |
 |:--|:--|
-| $g(0) = p_0$ | probabilidad de que un individuo no tenga hijos |
-| $g(1) = 1$ | las probabilidades suman $1$ (siempre sirve como verificación) |
-| $g'(1) = \sum_k k\,p_k = m$ | media de descendencia |
-| $g''(1) = \mathbb{E}[X(X-1)]$ | de aquí, $\sigma^2 = g''(1) + g'(1) - g'(1)^2$ |
+| $g(0) = p_0$ | Probabilidad de que un individuo no tenga hijos |
+| $g(1) = 1$ | Las probabilidades suman $1$ (siempre sirve como verificación) |
+| $g'(1) = \sum_k k\,p_k = m$ | Media de descendencia |
 | $g$ es creciente y **convexa** en $[0,1]$ | $g''(t) = \sum_k k(k-1)p_k t^{k-2} \ge 0$; es estrictamente convexa si $p_0 + p_1 < 1$ |
 
-#### 3.4 La propiedad clave: las sumas independientes se convierten en productos
+#### 3.3 La propiedad clave: las sumas independientes se convierten en productos
 
 Si $X$ e $Y$ son independientes,
 
@@ -266,7 +254,7 @@ $$\mathbb{E}\big[t^{X+Y}\big] = \mathbb{E}\big[t^{X}\, t^{Y}\big] = \mathbb{E}\b
 
 La FGP de la suma es el producto de las FGP. Al multiplicar dos polinomios se multiplica cada término del primero por cada término del segundo y los **exponentes se suman**: el exponente $a + b$ representa "$a$ hijos del primer individuo más $b$ hijos del segundo". Al agrupar términos semejantes, el coeficiente de $t^j$ reúne (con sus probabilidades) todas las parejas que suman $j$. Por eso multiplicar polinomios equivale a convolucionar leyes.
 
-#### 3.5 La fila $i$ de $P$ sale de $g(t)^i$
+#### 3.4 La fila $i$ de $P$ sale de $g(t)^i$
 
 Dado $Z_n = i$, la siguiente generación es la suma de $i$ copias independientes de $X$, y su FGP es $g(t) \cdots g(t) = g(t)^i$. Por tanto
 
@@ -274,7 +262,7 @@ $$\sum_{j \ge 0} P(i,j)\, t^j = \big[g(t)\big]^{i}.$$
 
 **Receta para obtener la fila $i$:** (1) escribir $g(t) = \sum_k p_k t^k$; (2) calcular el polinomio $[g(t)]^i$; (3) leer como $P(i,j)$ el coeficiente de $t^j$. Si $X$ pertenece a una familia cerrada bajo sumas (Bernoulli, Poisson, binomial negativa), el paso (2) puede omitirse: la suma de $i$ copias pertenece a la misma familia.
 
-#### 3.6 Ejemplo resuelto: descendencia uniforme en $\{0, 1, 2\}$
+#### 3.5 Ejemplo resuelto: descendencia uniforme en $\{0, 1, 2\}$
 
 Aquí $p_0 = p_1 = p_2 = 1/3$ y $g(t) = \tfrac13 (1 + t + t^2)$. La media es $m = 1$ (caso crítico). Los polinomios de las primeras filas son:
 
@@ -295,7 +283,7 @@ $$P = \begin{pmatrix}
 
 con $\mu_0 = (0, 1, 0, 0)$ si se parte de un individuo. La última entrada de la fila 2 es $\tfrac{2+1}{9}$ (totales $3$ y $4$) y la de la fila 3 es $\tfrac{7+6+3+1}{27}$ (totales $3$ a $6$).
 
-#### 3.7 Dos usos distintos de $g$: potencia frente a composición
+#### 3.6 Dos usos distintos de $g$: potencia frente a composición
 
 * **Potencia $g^i$** (multiplicar): más individuos **en la misma generación**. Da la fila $i$ de $P$.
 * **Composición $g \circ g$**: más **generaciones**. Da la ley de $Z_2$ partiendo de un individuo (sección 4).
@@ -1029,11 +1017,6 @@ Esta identidad tiene dos usos:
 
 * **Construcción exacta de $P$.** La fila $i$ de la matriz de transición es una Poisson$\left(i\lambda\right)$ (sección 7.2), por lo que la matriz de la Parte IV se obtiene sin convoluciones.
 * **Simulación más rápida (no implementada).** Permitiría generar cada generación con un único sorteo Poisson$\left(Z_n\lambda\right)$, de costo constante. La implementación actual suma individuo por individuo: es exacta y equivalente en distribución, pero su costo crece con el tamaño de la población, del orden de $10^5$ a $10^6$ portadores en esta sección. Por eso los cálculos de esta parte son más lentos que los de la Parte II.
-
-#### 2. Monte Carlo directo frente a MCMC
-
-- **Monte Carlo directo (hacia adelante).** Es el método empleado aquí. Se simulan realizaciones del proceso temporal $\{Z_n\}_{n \ge 0}$ partiendo del estado conocido $Z_0$ y avanzando generación a generación.
-- **Por qué no MCMC.** MCMC (Metropolis, Gibbs) sirve para muestrear una distribución estacionaria o *a posteriori* compleja. En un proceso de ramificación con $p_0 > 0$ los estados $\{1, 2, \dots\}$ son **transitorios** y el único estado recurrente es el $0$ (absorbente), de modo que no existe una distribución estacionaria no trivial (sección 6). Lo que interesa es la **trayectoria dinámica** hacia la extinción.
 """
 
 # ╔═╡ 00000002-0002-0002-0002-000000000048
@@ -1355,31 +1338,6 @@ begin
 		"""
 	end
 end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000060
-md"""
----
-
-## Parte IV. La cadena de Markov por dentro: caracterización explícita
-### Estados, matriz de transición $P$ y flujo de probabilidad
-
-En las secciones anteriores se analizaron las estadísticas globales del modelo. Aquí se muestra el objeto formal subyacente: la **cadena de Markov en tiempo discreto** descrita en la sección 2, con su espacio de estados, su distribución inicial y su matriz de transición, construida con la ley de Poisson($\lambda$) del control de la Parte III.
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000061
-md"""
-### 1. Definición del espacio de estados
-
-En el modelo riguroso el espacio de estados es infinito numerable, $S = \{0, 1, 2, 3, \ldots\}$, y cada estado representa la cantidad exacta de portadores vivos del apellido.
-
-Para visualizar y calcular la matriz de forma explícita se considera el **espacio de estados truncado** $S_M = \{0, 1, 2, \ldots, M\}$ (sección 7.1):
-
-- **Estado 0 (extinción).** Es un **estado absorbente**: si el linaje llega a 0 personas nadie puede reproducirse y $P_{0,0} = 1$.
-- **Estados $1, 2, \dots, M-1$.** Son **estados transitorios**. El linaje tiene individuos activos, pero la masa de probabilidad termina abandonándolos.
-- **Estado $M$ ("$M+$").** Estado de acumulación que agrupa a todos los linajes con $M$ o más portadores. Para sus transiciones se usa la fila del estado $M$, lo que constituye una aproximación (sección 7.1).
-
-Las filas de $P$ se obtienen con el atajo de Poisson: partiendo de $i$ portadores, la descendencia total sigue una Poisson$\left(i\lambda\right)$ (sección 7.2).
-"""
 
 # ╔═╡ 00000002-0002-0002-0002-000000000062
 md"**Tope de estados a visualizar ($M$):** $(@bind M_slider Slider(4:1:12, default=8, show_value=true))"
@@ -1750,26 +1708,21 @@ md"""
 **Advertencia sobre el caso $\lambda > 1$.** En la cadena *truncada* la absorción en 0 es segura aunque $\lambda > 1$, porque el estado 0 es alcanzable desde todos los estados de un conjunto finito. El proceso original, en cambio, no se extingue con probabilidad $1 - q^{Z_0}$ (sección 5). La diferencia entre ambos es un efecto del truncamiento y se aprecia en la curva de absorción: la línea discontinua (proceso exacto) converge a $q^{Z_0}$ y la roja (cadena truncada) a 1.
 """
 
-# ╔═╡ 00000002-0002-0002-0002-000000000071
-md"""
-### Síntesis
-
-La cadena de Markov de Galton–Watson puede resumirse como un modelo dinámico paso a paso:
-
-1. **Espacio de estados.** Cada posición representa un número de portadores ($0, 1, 2, 3, \ldots$).
-2. **Estado inicial.** El proceso arranca en la cantidad actual del apellido, $Z_0$, con distribución inicial $\mu_0 = \delta_{Z_0}$.
-3. **Matriz de transición $P$.** En cada generación, la población salta a un nuevo estado según las probabilidades de la fila correspondiente al estado actual.
-4. **Régimen subcrítico ($\lambda < 1$).** Las probabilidades se concentran a la izquierda de la diagonal, lo que produce una deriva sistemática hacia valores menores.
-5. **Estado 0 (extinción).** Es un pozo absorbente: una vez alcanzado, no hay descendencia posible y la cadena permanece en 0 con probabilidad 1.
-6. **Conclusión.** Con fecundidad por debajo del reemplazo, la probabilidad converge a un único estado, el 0, tanto para un apellido de un solo portador como para los 754.991 del apellido más numeroso de la tabla. Lo que cambia entre apellidos no es el destino sino el **tiempo**, que crece solo con el logaritmo de la población inicial.
+# ╔═╡ 4c85c2e9-5396-43d7-bea1-aed1414de316
+html"""
+<style>
+    .markdown p, .markdown li {
+        text-align: justify;
+    }
+</style>
 """
 
 # ╔═╡ Cell order:
 # ╟─00000002-0002-0002-0002-000000000001
-# ╟─00000002-0002-0002-0002-000000000002
-# ╟─00000002-0002-0002-0002-000000000074
-# ╟─00000002-0002-0002-0002-000000000075
-# ╟─00000002-0002-0002-0002-000000000076
+# ╠═00000002-0002-0002-0002-000000000002
+# ╠═00000002-0002-0002-0002-000000000074
+# ╠═00000002-0002-0002-0002-000000000075
+# ╠═00000002-0002-0002-0002-000000000076
 # ╟─00000002-0002-0002-0002-000000000077
 # ╟─00000002-0002-0002-0002-000000000003
 # ╟─00000002-0002-0002-0002-000000000004
@@ -1793,7 +1746,7 @@ La cadena de Markov de Galton–Watson puede resumirse como un modelo dinámico 
 # ╟─00000002-0002-0002-0002-000000000019
 # ╟─00000002-0002-0002-0002-000000000020
 # ╟─00000002-0002-0002-0002-000000000021
-# ╟─00000002-0002-0002-0002-000000000022
+# ╠═00000002-0002-0002-0002-000000000022
 # ╟─00000002-0002-0002-0002-000000000023
 # ╟─00000002-0002-0002-0002-000000000024
 # ╟─00000002-0002-0002-0002-000000000025
@@ -1811,14 +1764,12 @@ La cadena de Markov de Galton–Watson puede resumirse como un modelo dinámico 
 # ╟─00000002-0002-0002-0002-000000000044
 # ╟─00000002-0002-0002-0002-000000000045
 # ╟─00000002-0002-0002-0002-000000000046
-# ╟─00000002-0002-0002-0002-000000000047
+# ╠═00000002-0002-0002-0002-000000000047
 # ╟─00000002-0002-0002-0002-000000000048
 # ╟─00000002-0002-0002-0002-000000000049
 # ╟─00000002-0002-0002-0002-000000000050
 # ╟─00000002-0002-0002-0002-000000000051
 # ╟─00000002-0002-0002-0002-000000000052
-# ╟─00000002-0002-0002-0002-000000000060
-# ╟─00000002-0002-0002-0002-000000000061
 # ╟─00000002-0002-0002-0002-000000000062
 # ╟─00000002-0002-0002-0002-000000000063
 # ╟─00000002-0002-0002-0002-000000000083
@@ -1831,4 +1782,4 @@ La cadena de Markov de Galton–Watson puede resumirse como un modelo dinámico 
 # ╟─00000002-0002-0002-0002-000000000068
 # ╟─00000002-0002-0002-0002-000000000069
 # ╟─00000002-0002-0002-0002-000000000070
-# ╟─00000002-0002-0002-0002-000000000071
+# ╟─4c85c2e9-5396-43d7-bea1-aed1414de316
