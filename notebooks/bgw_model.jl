@@ -94,6 +94,9 @@ begin
 	end
 end
 
+# ╔═╡ 00000002-0002-0002-0002-000000000085
+TableOfContents(title = "Índice", indent = true, depth = 4, aside = true)
+
 # ╔═╡ 00000002-0002-0002-0002-000000000002
 md"""
 # Modelo de Bienaymé–Galton–Watson (PBGW)
@@ -114,7 +117,7 @@ El cuaderno combina tres elementos:
 | Sección | Tema |
 |:--|:--|
 | 1 | Definición del proceso y notación |
-| 2 | El PBGW como cadena de Markov: estados, distribución inicial y matriz $P$ |
+| 2 | El PBGW como cadena de Markov: estados, distribución inicial y matriz $P$ (con visualización interactiva) |
 | 3 | La función generadora de probabilidad |
 | 4 | Iteración de la FGP y ley de $Z_n$ |
 | 5 | Probabilidad de extinción y regímenes |
@@ -224,6 +227,60 @@ $$\pi_{n+1} = \pi_n P, \qquad \pi_n = \pi_0 P^n .$$
 
 Además, la cadena tiene la **propiedad de ramificación**: partiendo de $i$ individuos, el proceso es la suma de $i$ procesos independientes, cada uno iniciado en un individuo. En particular, $\mathbb{P}_i(Z_n = 0) = \mathbb{P}_1(Z_n = 0)^i$. Esta propiedad justifica que la extinción con $z_0$ individuos iniciales tenga probabilidad $q^{z_0}$ (sección 5).
 """
+
+# ╔═╡ 00000002-0002-0002-0002-000000000084
+md"""
+#### 2.6 Visualización interactiva de la matriz $P$ y de la cadena
+
+Las celdas siguientes muestran de forma explícita la matriz de transición truncada (sección 7.1), el grafo de estados y la evolución de la distribución $\pi_n = \pi_0 P^n$ (sección 2.5). Se controlan con el tope de estados $M$, el estado inicial $Z_0$ y la generación $n$. La tasa de natalidad $\lambda$ es la del selector de apellidos de la Parte III.
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000062
+md"**Tope de estados a visualizar ($M$):** $(@bind M_slider Slider(4:1:12, default=8, show_value=true))"
+
+# ╔═╡ 00000002-0002-0002-0002-000000000063
+md"**Estado inicial $Z_0$ para la cadena:** $(@bind z0_markov_slider Slider(1:1:8, default=2, show_value=true))"
+
+# ╔═╡ 00000002-0002-0002-0002-000000000083
+begin
+	# Matriz de transición truncada del PBGW con descendencia Poisson(λ).
+	#
+	# Estados 0, 1, …, M (posiciones 1, …, M+1 de la matriz); el último es "M+".
+	#   Fila 0:  P(0,0) = 1  (absorbente).
+	#   Fila i:  con i portadores la descendencia total es Poisson(i·λ) (propiedad
+	#            reproductiva de Poisson), así que P(i,j) = P(Poisson(iλ) = j) para
+	#            j = 0, …, M-1, y P(i, M+) = P(Poisson(iλ) ≥ M) es la cola agregada.
+	#
+	# `max_hijos` debe ser grande para que la cola quede bien representada: el
+	# constructor ModeloPBGW corta la ley en max_hijos y RENORMALIZA, de modo que un
+	# corte en M distorsionaría tanto P(i,j) como la columna M+ (sección 7.2).
+	function matriz_transicion_truncada(lambda::Float64, M::Int; max_hijos::Int = 200)
+		P = zeros(Float64, M + 1, M + 1)
+		P[1, 1] = 1.0                                   # estado 0 absorbente
+		for i in 1:M
+			pk_i = ModeloPBGW(i * lambda; max_hijos = max_hijos).pk   # pk_i[k+1] = P(Poisson(iλ) = k)
+			P[i + 1, 1:M] = pk_i[1:M]                   # P(i, j) para j = 0, …, M-1
+			P[i + 1, M + 1] = sum(pk_i[(M + 1):end])    # P(i, ≥ M): toda la cola va a "M+"
+		end
+		return P
+	end
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000072
+md"""
+##### Diagrama de estados de la cadena (grafo de transición)
+
+La cadena se visualiza como una **red dirigida** (ejemplo con $M = 3$: estados $0, 1, 2, 3+$):
+
+- **Nodos.** Estados de la cadena (cantidad de portadores vivos). El estado **0** (rojo) es el pozo absorbente.
+- **Flechas dirigidas.** Saltos de transición en un paso (una generación), rotulados con su probabilidad $P_{ij}$. Solo se dibujan las transiciones con probabilidad superior a 0.025.
+- **Flechas inferiores rojas y naranjas.** Camino de **decaimiento** ($i \to j$ con $j < i$); la roja es la que conduce a la extinción. Son las más gruesas en régimen subcrítico.
+- **Flechas superiores azules.** Camino de **crecimiento** del linaje ($i \to j$ con $j > i$).
+- **Autolazos.** Transición $i \to i$ (el tamaño no cambia). En el estado 0 tiene probabilidad $1.00$ y no hay flecha de salida.
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000066
+md"**Paso de tiempo / generación ($n$) para el vector de estado $\boldsymbol{\pi}_n$:** $(@bind gen_pi_slider Slider(0:1:25, default=3, show_value=true))"
 
 # ╔═╡ 00000002-0002-0002-0002-000000000076
 md"""
@@ -957,6 +1014,277 @@ md"**Seleccione un apellido de Colombia:** $(@bind ap_col_select Select([\"Rodr�
 # ╔═╡ 00000002-0002-0002-0002-000000000042
 md"**Tasa de natalidad masculina $\lambda$** (hijos varones promedio por hombre): $(@bind lambda_col_slider Slider(0.1:0.05:1.2, default=0.5, show_value=true))"
 
+# ╔═╡ 00000002-0002-0002-0002-000000000064
+begin
+	M_dim = M_slider
+	lambda_p = lambda_col_slider
+
+	# Matriz de transición explícita (filas = estado actual i, columnas = estado siguiente j)
+	P_mat = matriz_transicion_truncada(lambda_p, M_dim)
+
+	# Etiquetas de los estados: "0", "1", …, "M+"
+	etiquetas_estados = [string(i) for i in 0:M_dim]
+	etiquetas_estados[end] = "$(M_dim)+"
+
+	# Paleta cálida y clara para garantizar máximo contraste con el texto negro
+	cmap_mat_markov = cgrad([:white, "#fef08a", "#fdba74", "#f87171", "#ef4444"], [0.0, 0.05, 0.35, 0.7, 1.0])
+	fsize_p = M_dim <= 8 ? 10 : 8
+
+	# Los ejes son numéricos (0, …, M) con marcas de texto. Así las coordenadas de las
+	# anotaciones coinciden exactamente con el centro de cada celda del mapa de calor.
+	p_heatmap_P = heatmap(
+		0:M_dim, 0:M_dim, P_mat,
+		yflip = true,
+		xticks = (0:M_dim, etiquetas_estados), yticks = (0:M_dim, etiquetas_estados),
+		title = "Matriz de transición P — $(M_dim + 1)×$(M_dim + 1) (λ = $(@sprintf("%.2f", lambda_p)))",
+		xlabel = "Estado destino en la siguiente generación (j)",
+		ylabel = "Estado origen actual (i)",
+		colorbar_title = "Probabilidad",
+		color = cmap_mat_markov, clims = (0.0, 1.0),
+		size = (680, 560), aspect_ratio = :equal
+	)
+
+	# Valor de cada entrada P(i,j), centrado en su celda
+	for i in 0:M_dim
+		for j in 0:M_dim
+			txt = @sprintf("%.2f", P_mat[i + 1, j + 1])
+			annotate!(p_heatmap_P, j, i, text(txt, font(fsize_p, :center, :black, fuente_negrita)))
+		end
+	end
+
+	p_heatmap_P
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000065
+begin
+	# Verificación de que P es una matriz estocástica: cada fila suma 1
+	error_filas = maximum(abs.(vec(sum(P_mat, dims = 2)) .- 1.0))
+	error_txt = @sprintf("%.1e", error_filas)
+
+	md"""
+	##### Interpretación directa de la matriz
+
+	- **Fila 0.** Es $[1.00, 0.00, 0.00, \ldots]$ y representa el **pozo absorbente**: una vez que el apellido llega a 0 portadores, nunca sale.
+	- **Filas $i > 0$.** Entrada $\left(i,j\right)$ = probabilidad de pasar de $i$ a $j$ personas en la siguiente generación. Cada fila suma 1 (error numérico máximo: $(error_txt)).
+	- **Última fila y última columna ("$M+$").** La última columna acumula la probabilidad de alcanzar $M$ o más portadores. Los valores menores que 0.005 se muestran como 0.00.
+	- **Sesgo hacia la izquierda.** Cuando $\lambda < 1$, la masa de cada fila se concentra a la izquierda de la diagonal (hacia números menores de portadores), lo que empuja sistemáticamente la distribución hacia el estado 0. Si $\lambda > 1$, la masa se desplaza hacia la derecha.
+	"""
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000067
+begin
+	M_curr = M_slider
+	z0_c = min(z0_markov_slider, M_curr)     # el estado inicial no puede superar el tope M
+
+	# Distribución inicial μ₀ = δ_{z0} (sección 2.2): vector fila con un 1 en la
+	# posición z0 (índice z0+1) y ceros en las demás
+	pi_0 = zeros(Float64, M_curr + 1)
+	pi_0[z0_c + 1] = 1.0
+
+	# Distribución en la generación n: πₙ = π₀ Pⁿ (sección 2.5). Se aplica P una vez
+	# por generación: πₖ₊₁ = πₖ P (vector fila por matriz).
+	pi_n = copy(pi_0)
+	for _ in 1:gen_pi_slider
+		pi_n = vec(pi_n' * P_mat)
+	end
+
+	colores_pi = [k == 0 ? "#e53935" : "#1e88e5" for k in 0:M_curr]
+
+	# Ejes numéricos con marcas de texto: las anotaciones quedan centradas sobre las barras
+	p_bar_pi = bar(
+		0:M_curr, pi_n,
+		xticks = (0:M_curr, etiquetas_estados),
+		xlabel = "Número de portadores (estado)",
+		ylabel = "Probabilidad πₙ(k)",
+		title = "Distribución πₙ en la generación n = $(gen_pi_slider) (Z₀ = $(z0_c))",
+		color = colores_pi, alpha = 0.85, legend = false,
+		ylims = (0.0, 1.15), size = (800, 400)
+	)
+
+	# Porcentaje sobre las barras con masa apreciable
+	for (k, p_val) in zip(0:M_curr, pi_n)
+		if p_val > 0.015
+			annotate!(p_bar_pi, k, p_val + 0.04, text(@sprintf("%.1f%%", p_val * 100), 8, :center, :black, fuente_negrita))
+		end
+	end
+
+	p_bar_pi
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000068
+begin
+	max_g_flujo = 20
+	M_flujo = M_slider
+	z0_f = min(z0_markov_slider, M_flujo)
+
+	# Cada fila de mat_flujo es πₙ para n = 0, 1, …, max_g_flujo (πₙ₊₁ = πₙ P)
+	mat_flujo = zeros(Float64, max_g_flujo + 1, M_flujo + 1)
+	vec_temp = zeros(Float64, M_flujo + 1)
+	vec_temp[z0_f + 1] = 1.0
+	mat_flujo[1, :] = vec_temp
+
+	for g in 1:max_g_flujo
+		vec_temp = vec(vec_temp' * P_mat)
+		mat_flujo[g + 1, :] = vec_temp
+	end
+
+	p_flujo = heatmap(
+		0:M_flujo, 0:max_g_flujo, mat_flujo,
+		yflip = true,
+		xticks = (0:M_flujo, etiquetas_estados), yticks = 0:2:max_g_flujo,
+		title = "Evolución del flujo de probabilidad desde Z₀ = $(z0_f)",
+		xlabel = "Estado (portadores)", ylabel = "Generación (n)",
+		colorbar_title = "Probabilidad",
+		color = cmap_mat_markov, clims = (0.0, 1.0),
+		size = (760, 540)
+	)
+	p_flujo
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000073
+begin
+	# Modelo de juguete para el grafo: estados 0, 1, 2, 3+ (M = 3), con la misma
+	# función que construye la matriz de la sección anterior
+	M_toy = 3
+	P_toy = matriz_transicion_truncada(lambda_col_slider, M_toy)
+
+	# ── Geometría, en coordenadas de datos (aspect_ratio = :equal da círculos reales) ──
+	xs_toy = [0.0, 3.6, 7.2, 10.8]                  # centros de los nodos (todos en y = 0)
+	r_nodo = 0.62                                   # radio de los nodos
+	nombres_toy = ["0", "1", "2", "3+"]
+	colores_nodos = ["#e53935", "#1e88e5", "#1e88e5", "#8e24aa"]
+	umbral_prob = 0.025                             # no se dibujan transiciones menos probables
+
+	# Alturas de los arcos según la distancia d = |j - i| entre nodos
+	altura_arco_sup(d) = d == 1 ? 0.95 : 2.45 + 0.6 * (d - 2)   # los de d ≥ 2 pasan por encima de los autolazos
+	altura_arco_inf(d) = 0.95 + 0.6 * (d - 1)
+	# Ángulo (en grados) con que el arco sale/llega al borde del nodo; varía con d para
+	# que las puntas de flecha que llegan al mismo nodo no se superpongan. Los arcos
+	# inferiores usan un paso mayor porque en esa mitad no hay autolazos.
+	angulo_borde_sup(d) = 22.0 + 22.0 * (d - 1)
+	angulo_borde_inf(d) = 22.0 + 22.0 * (d - 1)
+
+	# Cabeza de flecha triangular con la punta en (tx, ty) y dirección unitaria (ux, uy)
+	function cabeza_flecha(tx, ty, ux, uy; largo = 0.26, semiancho = 0.12)
+		bx, by = tx - ux * largo, ty - uy * largo
+		return Shape([tx, bx - uy * semiancho, bx + uy * semiancho],
+		             [ty, by + ux * semiancho, by - ux * semiancho])
+	end
+
+	# Arco de Bézier cuadrático entre dos puntos del borde de los nodos, con flecha
+	# en el destino. `h` es la altura (con signo) del vértice del arco.
+	function dibujar_arco!(plt, xs, ys, xe, ye, h, col, lw, prob, etiqueta_dentro)
+		cx = (xs + xe) / 2
+		cy = 2 * h - ys                              # punto de control: el vértice del arco queda en y = h
+		bez(t) = ((1 - t)^2 * xs + 2 * (1 - t) * t * cx + t^2 * xe,
+		          (1 - t)^2 * ys + 2 * (1 - t) * t * cy + t^2 * ye)
+		largo_flecha = 0.26
+		# Se recorta la curva donde empieza la cabeza de la flecha
+		t_corte = 1.0
+		for t in range(1.0, 0.5, length = 200)
+			px, py = bez(t)
+			if hypot(px - xe, py - ye) >= 0.8 * largo_flecha
+				t_corte = t
+				break
+			end
+		end
+		ts_c = range(0.0, t_corte, length = 60)
+		pts = [bez(t) for t in ts_c]
+		plot!(plt, first.(pts), last.(pts), color = col, linewidth = lw, alpha = 0.85, label = false)
+		# La tangente en t = 1 es (E − control)
+		tx, ty = xe - cx, ye - cy
+		L = hypot(tx, ty)
+		plot!(plt, cabeza_flecha(xe, ye, tx / L, ty / L; largo = largo_flecha),
+		      color = col, linecolor = col, linewidth = 1, alpha = 0.95, label = false)
+		# Etiqueta en el vértice del arco, del lado de dentro (hacia el eje) o de fuera
+		signo = h > 0 ? 1.0 : -1.0
+		desplaza = etiqueta_dentro ? -0.27 * signo : 0.30 * signo
+		annotate!(plt, cx, h + desplaza,
+		          text(@sprintf("%.2f", prob), 8, :center, col, fuente_negrita))
+	end
+
+	# Autolazo sobre el nodo (cx, cy): circunferencia de radio r_l que corta el borde
+	# del nodo, recorrida en sentido antihorario, con la flecha entrando al nodo
+	function dibujar_autolazo!(plt, cx, cy, col, lw, prob)
+		d_l, r_l = 0.80, 0.42
+		# Ángulo θ0 donde la circunferencia del lazo corta el borde del nodo:
+		# |(r_l cos θ, d_l + r_l sin θ)| = r_nodo  ⇒  sin θ0 = (r_nodo² − r_l² − d_l²) / (2 d_l r_l)
+		θ0 = asin((r_nodo^2 - r_l^2 - d_l^2) / (2 * d_l * r_l))
+		θ1 = π - θ0                                   # extremo final (lado izquierdo del nodo)
+		largo_flecha = 0.22
+		θ_corte = θ1 - 0.8 * largo_flecha / r_l       # recorte de la curva donde empieza la flecha
+		thetas = range(θ0, θ_corte, length = 60)
+		plot!(plt, cx .+ r_l .* cos.(thetas), cy .+ d_l .+ r_l .* sin.(thetas),
+		      color = col, linewidth = lw, alpha = 0.85, label = false)
+		# Punta de flecha en el extremo θ1, tangente al sentido antihorario (−sin θ, cos θ)
+		tipx, tipy = cx + r_l * cos(θ1), cy + d_l + r_l * sin(θ1)
+		plot!(plt, cabeza_flecha(tipx, tipy, -sin(θ1), cos(θ1); largo = largo_flecha, semiancho = 0.11),
+		      color = col, linecolor = col, linewidth = 1, alpha = 0.95, label = false)
+		annotate!(plt, cx, cy + d_l + r_l + 0.30,
+		          text(@sprintf("%.2f", prob), 8, :center, col, fuente_negrita))
+	end
+
+	# ── Selección de las transiciones a dibujar y límites verticales de la figura ──
+	hay_arco_sup_largo = any(P_toy[i + 1, j + 1] > umbral_prob for i in 0:M_toy for j in 0:M_toy if j - i >= 2)
+	d_inf_max = maximum([i - j for i in 0:M_toy for j in 0:M_toy if i > j && P_toy[i + 1, j + 1] > umbral_prob]; init = 1)
+	y_top = hay_arco_sup_largo ? 3.2 : 2.3
+	y_bot = -(altura_arco_inf(d_inf_max) + 0.55)
+	x_lo, x_hi = -1.5, 12.3
+
+	p_diag_markov = plot(
+		xlims = (x_lo, x_hi), ylims = (y_bot, y_top),
+		aspect_ratio = :equal,
+		title = "Grafo dirigido de transiciones (M = 3, λ = $(@sprintf("%.2f", lambda_col_slider)))",
+		legend = false, grid = false, framestyle = :none,
+		size = (940, round(Int, 940 * (y_top - y_bot) / (x_hi - x_lo)) + 70)
+	)
+
+	# Se dibujan primero las transiciones y luego los nodos (que tapan los extremos)
+	for i in 0:M_toy
+		for j in 0:M_toy
+			prob = P_toy[i + 1, j + 1]
+			prob > umbral_prob || continue
+			if i == j
+				# Autolazo: rojo grueso en el estado absorbente, gris en los demás
+				dibujar_autolazo!(p_diag_markov, xs_toy[i + 1], 0.0,
+				                  i == 0 ? "#e53935" : "#757575", i == 0 ? 2.5 : 1.5, prob)
+			elseif j > i
+				# Crecimiento: arco superior azul
+				d = j - i
+				a = deg2rad(angulo_borde_sup(d))
+				xs, ys = xs_toy[i + 1] + r_nodo * cos(a), r_nodo * sin(a)
+				xe, ye = xs_toy[j + 1] + r_nodo * cos(π - a), r_nodo * sin(π - a)
+				dibujar_arco!(p_diag_markov, xs, ys, xe, ye, altura_arco_sup(d),
+				              "#1e88e5", 1.2 + 3.0 * prob, prob, d == 1)
+			else
+				# Decaimiento: arco inferior; rojo si llega a la extinción, naranja en otro caso
+				d = i - j
+				a = deg2rad(angulo_borde_inf(d))
+				xs, ys = xs_toy[i + 1] + r_nodo * cos(π + a), -r_nodo * sin(a)
+				xe, ye = xs_toy[j + 1] + r_nodo * cos(-a), -r_nodo * sin(a)
+				dibujar_arco!(p_diag_markov, xs, ys, xe, ye, -altura_arco_inf(d),
+				              j == 0 ? "#e53935" : "#e65100", 1.2 + 3.5 * prob, prob, true)
+			end
+		end
+	end
+
+	# Nodos: círculos blancos con borde de color y etiqueta centrada
+	θc = range(0, 2π, length = 80)
+	for idx in 1:(M_toy + 1)
+		x0 = xs_toy[idx]
+		plot!(p_diag_markov, Shape(x0 .+ r_nodo .* cos.(θc), r_nodo .* sin.(θc)),
+		      fillcolor = :white, linecolor = colores_nodos[idx], linewidth = 3.5, label = false)
+		if idx == 1
+			annotate!(p_diag_markov, x0, 0.16, text("0", 13, :center, :black, fuente_negrita))
+			annotate!(p_diag_markov, x0, -0.24, text("extinto", 8, :center, :black, fuente_negrita))
+		else
+			annotate!(p_diag_markov, x0, 0.0, text(nombres_toy[idx], 13, :center, :black, fuente_negrita))
+		end
+	end
+
+	p_diag_markov
+end
+
 # ╔═╡ 00000002-0002-0002-0002-000000000043
 md"**Evaluar la probabilidad de extinción acumulada hasta la generación ($X$):** $(@bind gen_eval_slider Slider(5:1:40, default=20, show_value=true))"
 
@@ -993,6 +1321,39 @@ begin
 		push!(filas_tabla, "| $idx | $ap_fmt | $(fmt_miles(cnt)) | $marca |")
 	end
 	Markdown.parse(join(filas_tabla, "\n"))
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000069
+begin
+	gens_curva_p = 0:25
+	z0_curva = min(z0_markov_slider, M_dim)
+
+	# Curva de la cadena truncada: P(Zₙ = 0) es la componente 0 de πₙ = π₀ Pⁿ
+	prob_ext_cadena = Float64[]
+	vec_t = zeros(Float64, M_dim + 1)
+	vec_t[z0_curva + 1] = 1.0
+	for g in gens_curva_p
+		push!(prob_ext_cadena, vec_t[1])          # P(Z_g = 0)
+		vec_t = vec(vec_t' * P_mat)
+	end
+
+	# Curva exacta del proceso sin truncar: P(Zₙ = 0) = [gₙ(0)]^Z₀ (sección 4.3)
+	prob_ext_exacta = prob_extincion_curva(modelo_colombia, last(gens_curva_p), z0_curva)
+
+	# La leyenda va debajo del área de datos para no tapar ninguna de las curvas
+	p_ext_acum = plot(
+		gens_curva_p, prob_ext_cadena,
+		xlabel = "Generación (n)", ylabel = "Probabilidad acumulada P(Zₙ = 0)",
+		title = "Curva de absorción: ¿con qué rapidez cae la cadena al estado 0?",
+		label = "Cadena truncada (matriz P)", color = :red, linewidth = 3,
+		size = (800, 460), ylims = (0.0, 1.05), grid = true,
+		legend = :outerbottom, legend_columns = 2
+	)
+	plot!(p_ext_acum, gens_curva_p, prob_ext_exacta,
+		label = "Proceso exacto: [gₙ(0)]^Z₀", color = :black, linewidth = 2, linestyle = :dash)
+	hline!(p_ext_acum, [0.5], label = "Mediana (50 %)", color = :gray, linestyle = :dash)
+	hline!(p_ext_acum, [1.0], label = "Absorción total (100 %)", color = :black, linestyle = :dot)
+	p_ext_acum
 end
 
 # ╔═╡ 00000002-0002-0002-0002-000000000047
@@ -1339,375 +1700,6 @@ begin
 	end
 end
 
-# ╔═╡ 00000002-0002-0002-0002-000000000062
-md"**Tope de estados a visualizar ($M$):** $(@bind M_slider Slider(4:1:12, default=8, show_value=true))"
-
-# ╔═╡ 00000002-0002-0002-0002-000000000063
-md"**Estado inicial $Z_0$ para la cadena:** $(@bind z0_markov_slider Slider(1:1:8, default=2, show_value=true))"
-
-# ╔═╡ 00000002-0002-0002-0002-000000000083
-begin
-	# Matriz de transición truncada del PBGW con descendencia Poisson(λ).
-	#
-	# Estados 0, 1, …, M (posiciones 1, …, M+1 de la matriz); el último es "M+".
-	#   Fila 0:  P(0,0) = 1  (absorbente).
-	#   Fila i:  con i portadores la descendencia total es Poisson(i·λ) (propiedad
-	#            reproductiva de Poisson), así que P(i,j) = P(Poisson(iλ) = j) para
-	#            j = 0, …, M-1, y P(i, M+) = P(Poisson(iλ) ≥ M) es la cola agregada.
-	#
-	# `max_hijos` debe ser grande para que la cola quede bien representada: el
-	# constructor ModeloPBGW corta la ley en max_hijos y RENORMALIZA, de modo que un
-	# corte en M distorsionaría tanto P(i,j) como la columna M+ (sección 7.2).
-	function matriz_transicion_truncada(lambda::Float64, M::Int; max_hijos::Int = 200)
-		P = zeros(Float64, M + 1, M + 1)
-		P[1, 1] = 1.0                                   # estado 0 absorbente
-		for i in 1:M
-			pk_i = ModeloPBGW(i * lambda; max_hijos = max_hijos).pk   # pk_i[k+1] = P(Poisson(iλ) = k)
-			P[i + 1, 1:M] = pk_i[1:M]                   # P(i, j) para j = 0, …, M-1
-			P[i + 1, M + 1] = sum(pk_i[(M + 1):end])    # P(i, ≥ M): toda la cola va a "M+"
-		end
-		return P
-	end
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000064
-begin
-	M_dim = M_slider
-	lambda_p = lambda_col_slider
-
-	# Matriz de transición explícita (filas = estado actual i, columnas = estado siguiente j)
-	P_mat = matriz_transicion_truncada(lambda_p, M_dim)
-
-	# Etiquetas de los estados: "0", "1", …, "M+"
-	etiquetas_estados = [string(i) for i in 0:M_dim]
-	etiquetas_estados[end] = "$(M_dim)+"
-
-	# Paleta cálida y clara para garantizar máximo contraste con el texto negro
-	cmap_mat_markov = cgrad([:white, "#fef08a", "#fdba74", "#f87171", "#ef4444"], [0.0, 0.05, 0.35, 0.7, 1.0])
-	fsize_p = M_dim <= 8 ? 10 : 8
-
-	# Los ejes son numéricos (0, …, M) con marcas de texto. Así las coordenadas de las
-	# anotaciones coinciden exactamente con el centro de cada celda del mapa de calor.
-	p_heatmap_P = heatmap(
-		0:M_dim, 0:M_dim, P_mat,
-		yflip = true,
-		xticks = (0:M_dim, etiquetas_estados), yticks = (0:M_dim, etiquetas_estados),
-		title = "Matriz de transición P — $(M_dim + 1)×$(M_dim + 1) (λ = $(@sprintf("%.2f", lambda_p)))",
-		xlabel = "Estado destino en la siguiente generación (j)",
-		ylabel = "Estado origen actual (i)",
-		colorbar_title = "Probabilidad",
-		color = cmap_mat_markov, clims = (0.0, 1.0),
-		size = (680, 560), aspect_ratio = :equal
-	)
-
-	# Valor de cada entrada P(i,j), centrado en su celda
-	for i in 0:M_dim
-		for j in 0:M_dim
-			txt = @sprintf("%.2f", P_mat[i + 1, j + 1])
-			annotate!(p_heatmap_P, j, i, text(txt, font(fsize_p, :center, :black, fuente_negrita)))
-		end
-	end
-
-	p_heatmap_P
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000065
-begin
-	# Verificación de que P es una matriz estocástica: cada fila suma 1
-	error_filas = maximum(abs.(vec(sum(P_mat, dims = 2)) .- 1.0))
-	error_txt = @sprintf("%.1e", error_filas)
-
-	md"""
-	### Interpretación directa de la matriz
-
-	- **Fila 0.** Es $[1.00, 0.00, 0.00, \ldots]$ y representa el **pozo absorbente**: una vez que el apellido llega a 0 portadores, nunca sale.
-	- **Filas $i > 0$.** Entrada $\left(i,j\right)$ = probabilidad de pasar de $i$ a $j$ personas en la siguiente generación. Cada fila suma 1 (error numérico máximo: $(error_txt)).
-	- **Última fila y última columna ("$M+$").** La última columna acumula la probabilidad de alcanzar $M$ o más portadores. Los valores menores que 0.005 se muestran como 0.00.
-	- **Sesgo hacia la izquierda.** Cuando $\lambda < 1$, la masa de cada fila se concentra a la izquierda de la diagonal (hacia números menores de portadores), lo que empuja sistemáticamente la distribución hacia el estado 0. Si $\lambda > 1$, la masa se desplaza hacia la derecha.
-	"""
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000072
-md"""
-### Diagrama de estados de la cadena (grafo de transición)
-
-La cadena se visualiza como una **red dirigida** (ejemplo con $M = 3$: estados $0, 1, 2, 3+$):
-
-- **Nodos.** Estados de la cadena (cantidad de portadores vivos). El estado **0** (rojo) es el pozo absorbente.
-- **Flechas dirigidas.** Saltos de transición en un paso (una generación), rotulados con su probabilidad $P_{ij}$. Solo se dibujan las transiciones con probabilidad superior a 0.025.
-- **Flechas inferiores rojas y naranjas.** Camino de **decaimiento** ($i \to j$ con $j < i$); la roja es la que conduce a la extinción. Son las más gruesas en régimen subcrítico.
-- **Flechas superiores azules.** Camino de **crecimiento** del linaje ($i \to j$ con $j > i$).
-- **Autolazos.** Transición $i \to i$ (el tamaño no cambia). En el estado 0 tiene probabilidad $1.00$ y no hay flecha de salida.
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000073
-begin
-	# Modelo de juguete para el grafo: estados 0, 1, 2, 3+ (M = 3), con la misma
-	# función que construye la matriz de la sección anterior
-	M_toy = 3
-	P_toy = matriz_transicion_truncada(lambda_col_slider, M_toy)
-
-	# ── Geometría, en coordenadas de datos (aspect_ratio = :equal da círculos reales) ──
-	xs_toy = [0.0, 3.6, 7.2, 10.8]                  # centros de los nodos (todos en y = 0)
-	r_nodo = 0.62                                   # radio de los nodos
-	nombres_toy = ["0", "1", "2", "3+"]
-	colores_nodos = ["#e53935", "#1e88e5", "#1e88e5", "#8e24aa"]
-	umbral_prob = 0.025                             # no se dibujan transiciones menos probables
-
-	# Alturas de los arcos según la distancia d = |j - i| entre nodos
-	altura_arco_sup(d) = d == 1 ? 0.95 : 2.45 + 0.6 * (d - 2)   # los de d ≥ 2 pasan por encima de los autolazos
-	altura_arco_inf(d) = 0.95 + 0.6 * (d - 1)
-	# Ángulo (en grados) con que el arco sale/llega al borde del nodo; varía con d para
-	# que las puntas de flecha que llegan al mismo nodo no se superpongan. Los arcos
-	# inferiores usan un paso mayor porque en esa mitad no hay autolazos.
-	angulo_borde_sup(d) = 22.0 + 22.0 * (d - 1)
-	angulo_borde_inf(d) = 22.0 + 22.0 * (d - 1)
-
-	# Cabeza de flecha triangular con la punta en (tx, ty) y dirección unitaria (ux, uy)
-	function cabeza_flecha(tx, ty, ux, uy; largo = 0.26, semiancho = 0.12)
-		bx, by = tx - ux * largo, ty - uy * largo
-		return Shape([tx, bx - uy * semiancho, bx + uy * semiancho],
-		             [ty, by + ux * semiancho, by - ux * semiancho])
-	end
-
-	# Arco de Bézier cuadrático entre dos puntos del borde de los nodos, con flecha
-	# en el destino. `h` es la altura (con signo) del vértice del arco.
-	function dibujar_arco!(plt, xs, ys, xe, ye, h, col, lw, prob, etiqueta_dentro)
-		cx = (xs + xe) / 2
-		cy = 2 * h - ys                              # punto de control: el vértice del arco queda en y = h
-		bez(t) = ((1 - t)^2 * xs + 2 * (1 - t) * t * cx + t^2 * xe,
-		          (1 - t)^2 * ys + 2 * (1 - t) * t * cy + t^2 * ye)
-		largo_flecha = 0.26
-		# Se recorta la curva donde empieza la cabeza de la flecha
-		t_corte = 1.0
-		for t in range(1.0, 0.5, length = 200)
-			px, py = bez(t)
-			if hypot(px - xe, py - ye) >= 0.8 * largo_flecha
-				t_corte = t
-				break
-			end
-		end
-		ts_c = range(0.0, t_corte, length = 60)
-		pts = [bez(t) for t in ts_c]
-		plot!(plt, first.(pts), last.(pts), color = col, linewidth = lw, alpha = 0.85, label = false)
-		# La tangente en t = 1 es (E − control)
-		tx, ty = xe - cx, ye - cy
-		L = hypot(tx, ty)
-		plot!(plt, cabeza_flecha(xe, ye, tx / L, ty / L; largo = largo_flecha),
-		      color = col, linecolor = col, linewidth = 1, alpha = 0.95, label = false)
-		# Etiqueta en el vértice del arco, del lado de dentro (hacia el eje) o de fuera
-		signo = h > 0 ? 1.0 : -1.0
-		desplaza = etiqueta_dentro ? -0.27 * signo : 0.30 * signo
-		annotate!(plt, cx, h + desplaza,
-		          text(@sprintf("%.2f", prob), 8, :center, col, fuente_negrita))
-	end
-
-	# Autolazo sobre el nodo (cx, cy): circunferencia de radio r_l que corta el borde
-	# del nodo, recorrida en sentido antihorario, con la flecha entrando al nodo
-	function dibujar_autolazo!(plt, cx, cy, col, lw, prob)
-		d_l, r_l = 0.80, 0.42
-		# Ángulo θ0 donde la circunferencia del lazo corta el borde del nodo:
-		# |(r_l cos θ, d_l + r_l sin θ)| = r_nodo  ⇒  sin θ0 = (r_nodo² − r_l² − d_l²) / (2 d_l r_l)
-		θ0 = asin((r_nodo^2 - r_l^2 - d_l^2) / (2 * d_l * r_l))
-		θ1 = π - θ0                                   # extremo final (lado izquierdo del nodo)
-		largo_flecha = 0.22
-		θ_corte = θ1 - 0.8 * largo_flecha / r_l       # recorte de la curva donde empieza la flecha
-		thetas = range(θ0, θ_corte, length = 60)
-		plot!(plt, cx .+ r_l .* cos.(thetas), cy .+ d_l .+ r_l .* sin.(thetas),
-		      color = col, linewidth = lw, alpha = 0.85, label = false)
-		# Punta de flecha en el extremo θ1, tangente al sentido antihorario (−sin θ, cos θ)
-		tipx, tipy = cx + r_l * cos(θ1), cy + d_l + r_l * sin(θ1)
-		plot!(plt, cabeza_flecha(tipx, tipy, -sin(θ1), cos(θ1); largo = largo_flecha, semiancho = 0.11),
-		      color = col, linecolor = col, linewidth = 1, alpha = 0.95, label = false)
-		annotate!(plt, cx, cy + d_l + r_l + 0.30,
-		          text(@sprintf("%.2f", prob), 8, :center, col, fuente_negrita))
-	end
-
-	# ── Selección de las transiciones a dibujar y límites verticales de la figura ──
-	hay_arco_sup_largo = any(P_toy[i + 1, j + 1] > umbral_prob for i in 0:M_toy for j in 0:M_toy if j - i >= 2)
-	d_inf_max = maximum([i - j for i in 0:M_toy for j in 0:M_toy if i > j && P_toy[i + 1, j + 1] > umbral_prob]; init = 1)
-	y_top = hay_arco_sup_largo ? 3.2 : 2.3
-	y_bot = -(altura_arco_inf(d_inf_max) + 0.55)
-	x_lo, x_hi = -1.5, 12.3
-
-	p_diag_markov = plot(
-		xlims = (x_lo, x_hi), ylims = (y_bot, y_top),
-		aspect_ratio = :equal,
-		title = "Grafo dirigido de transiciones (M = 3, λ = $(@sprintf("%.2f", lambda_col_slider)))",
-		legend = false, grid = false, framestyle = :none,
-		size = (940, round(Int, 940 * (y_top - y_bot) / (x_hi - x_lo)) + 70)
-	)
-
-	# Se dibujan primero las transiciones y luego los nodos (que tapan los extremos)
-	for i in 0:M_toy
-		for j in 0:M_toy
-			prob = P_toy[i + 1, j + 1]
-			prob > umbral_prob || continue
-			if i == j
-				# Autolazo: rojo grueso en el estado absorbente, gris en los demás
-				dibujar_autolazo!(p_diag_markov, xs_toy[i + 1], 0.0,
-				                  i == 0 ? "#e53935" : "#757575", i == 0 ? 2.5 : 1.5, prob)
-			elseif j > i
-				# Crecimiento: arco superior azul
-				d = j - i
-				a = deg2rad(angulo_borde_sup(d))
-				xs, ys = xs_toy[i + 1] + r_nodo * cos(a), r_nodo * sin(a)
-				xe, ye = xs_toy[j + 1] + r_nodo * cos(π - a), r_nodo * sin(π - a)
-				dibujar_arco!(p_diag_markov, xs, ys, xe, ye, altura_arco_sup(d),
-				              "#1e88e5", 1.2 + 3.0 * prob, prob, d == 1)
-			else
-				# Decaimiento: arco inferior; rojo si llega a la extinción, naranja en otro caso
-				d = i - j
-				a = deg2rad(angulo_borde_inf(d))
-				xs, ys = xs_toy[i + 1] + r_nodo * cos(π + a), -r_nodo * sin(a)
-				xe, ye = xs_toy[j + 1] + r_nodo * cos(-a), -r_nodo * sin(a)
-				dibujar_arco!(p_diag_markov, xs, ys, xe, ye, -altura_arco_inf(d),
-				              j == 0 ? "#e53935" : "#e65100", 1.2 + 3.5 * prob, prob, true)
-			end
-		end
-	end
-
-	# Nodos: círculos blancos con borde de color y etiqueta centrada
-	θc = range(0, 2π, length = 80)
-	for idx in 1:(M_toy + 1)
-		x0 = xs_toy[idx]
-		plot!(p_diag_markov, Shape(x0 .+ r_nodo .* cos.(θc), r_nodo .* sin.(θc)),
-		      fillcolor = :white, linecolor = colores_nodos[idx], linewidth = 3.5, label = false)
-		if idx == 1
-			annotate!(p_diag_markov, x0, 0.16, text("0", 13, :center, :black, fuente_negrita))
-			annotate!(p_diag_markov, x0, -0.24, text("extinto", 8, :center, :black, fuente_negrita))
-		else
-			annotate!(p_diag_markov, x0, 0.0, text(nombres_toy[idx], 13, :center, :black, fuente_negrita))
-		end
-	end
-
-	p_diag_markov
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000066
-md"**Paso de tiempo / generación ($n$) para el vector de estado $\boldsymbol{\pi}_n$:** $(@bind gen_pi_slider Slider(0:1:25, default=3, show_value=true))"
-
-# ╔═╡ 00000002-0002-0002-0002-000000000067
-begin
-	M_curr = M_slider
-	z0_c = min(z0_markov_slider, M_curr)     # el estado inicial no puede superar el tope M
-
-	# Distribución inicial μ₀ = δ_{z0} (sección 2.2): vector fila con un 1 en la
-	# posición z0 (índice z0+1) y ceros en las demás
-	pi_0 = zeros(Float64, M_curr + 1)
-	pi_0[z0_c + 1] = 1.0
-
-	# Distribución en la generación n: πₙ = π₀ Pⁿ (sección 2.5). Se aplica P una vez
-	# por generación: πₖ₊₁ = πₖ P (vector fila por matriz).
-	pi_n = copy(pi_0)
-	for _ in 1:gen_pi_slider
-		pi_n = vec(pi_n' * P_mat)
-	end
-
-	colores_pi = [k == 0 ? "#e53935" : "#1e88e5" for k in 0:M_curr]
-
-	# Ejes numéricos con marcas de texto: las anotaciones quedan centradas sobre las barras
-	p_bar_pi = bar(
-		0:M_curr, pi_n,
-		xticks = (0:M_curr, etiquetas_estados),
-		xlabel = "Número de portadores (estado)",
-		ylabel = "Probabilidad πₙ(k)",
-		title = "Distribución πₙ en la generación n = $(gen_pi_slider) (Z₀ = $(z0_c))",
-		color = colores_pi, alpha = 0.85, legend = false,
-		ylims = (0.0, 1.15), size = (800, 400)
-	)
-
-	# Porcentaje sobre las barras con masa apreciable
-	for (k, p_val) in zip(0:M_curr, pi_n)
-		if p_val > 0.015
-			annotate!(p_bar_pi, k, p_val + 0.04, text(@sprintf("%.1f%%", p_val * 100), 8, :center, :black, fuente_negrita))
-		end
-	end
-
-	p_bar_pi
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000068
-begin
-	max_g_flujo = 20
-	M_flujo = M_slider
-	z0_f = min(z0_markov_slider, M_flujo)
-
-	# Cada fila de mat_flujo es πₙ para n = 0, 1, …, max_g_flujo (πₙ₊₁ = πₙ P)
-	mat_flujo = zeros(Float64, max_g_flujo + 1, M_flujo + 1)
-	vec_temp = zeros(Float64, M_flujo + 1)
-	vec_temp[z0_f + 1] = 1.0
-	mat_flujo[1, :] = vec_temp
-
-	for g in 1:max_g_flujo
-		vec_temp = vec(vec_temp' * P_mat)
-		mat_flujo[g + 1, :] = vec_temp
-	end
-
-	p_flujo = heatmap(
-		0:M_flujo, 0:max_g_flujo, mat_flujo,
-		yflip = true,
-		xticks = (0:M_flujo, etiquetas_estados), yticks = 0:2:max_g_flujo,
-		title = "Evolución del flujo de probabilidad desde Z₀ = $(z0_f)",
-		xlabel = "Estado (portadores)", ylabel = "Generación (n)",
-		colorbar_title = "Probabilidad",
-		color = cmap_mat_markov, clims = (0.0, 1.0),
-		size = (760, 540)
-	)
-	p_flujo
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000069
-begin
-	gens_curva_p = 0:25
-	z0_curva = min(z0_markov_slider, M_dim)
-
-	# Curva de la cadena truncada: P(Zₙ = 0) es la componente 0 de πₙ = π₀ Pⁿ
-	prob_ext_cadena = Float64[]
-	vec_t = zeros(Float64, M_dim + 1)
-	vec_t[z0_curva + 1] = 1.0
-	for g in gens_curva_p
-		push!(prob_ext_cadena, vec_t[1])          # P(Z_g = 0)
-		vec_t = vec(vec_t' * P_mat)
-	end
-
-	# Curva exacta del proceso sin truncar: P(Zₙ = 0) = [gₙ(0)]^Z₀ (sección 4.3)
-	prob_ext_exacta = prob_extincion_curva(modelo_colombia, last(gens_curva_p), z0_curva)
-
-	# La leyenda va debajo del área de datos para no tapar ninguna de las curvas
-	p_ext_acum = plot(
-		gens_curva_p, prob_ext_cadena,
-		xlabel = "Generación (n)", ylabel = "Probabilidad acumulada P(Zₙ = 0)",
-		title = "Curva de absorción: ¿con qué rapidez cae la cadena al estado 0?",
-		label = "Cadena truncada (matriz P)", color = :red, linewidth = 3,
-		size = (800, 460), ylims = (0.0, 1.05), grid = true,
-		legend = :outerbottom, legend_columns = 2
-	)
-	plot!(p_ext_acum, gens_curva_p, prob_ext_exacta,
-		label = "Proceso exacto: [gₙ(0)]^Z₀", color = :black, linewidth = 2, linestyle = :dash)
-	hline!(p_ext_acum, [0.5], label = "Mediana (50 %)", color = :gray, linestyle = :dash)
-	hline!(p_ext_acum, [1.0], label = "Absorción total (100 %)", color = :black, linestyle = :dot)
-	p_ext_acum
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000070
-md"""
-### Caracterización matemática formal de la cadena
-
-| Propiedad | Clasificación en este modelo | Explicación |
-|:---|:---|:---|
-| **Espacio de estados** | $\{0, 1, 2, \ldots, M\}$ | Número de personas vivas portadoras del apellido |
-| **Estado inicial** | $\mu_0 = \delta_{z_0}$ | Se parte de $Z_0$ portadores con probabilidad 1 |
-| **Clasificación del estado 0** | **Absorbente y recurrente** | $P_{0,0} = 1$: si el apellido se extingue, no vuelve a surgir |
-| **Clasificación de los estados $k \ge 1$** | **Transitorios** | Desde $k$ se llega a 0 con probabilidad positiva y de 0 no se regresa |
-| **Irreducibilidad** | **No irreducible** | De los transitorios se llega al 0, pero del 0 no se puede salir |
-| **Periodicidad** | **Aperiódica** ($d = 1$) | $P_{i,i} > 0$ para todo estado $i$: no hay ciclos oscilatorios forzados |
-| **Distribución límite** | $\boldsymbol{\pi}^* = [1, 0, \ldots, 0]$ | Toda la masa de probabilidad termina concentrada en el estado 0 |
-| **Tiempo de absorción** | Finito casi seguramente en la cadena truncada | Un estado absorbente alcanzable desde todos los estados de una cadena finita se alcanza con probabilidad 1 |
-
-**Advertencia sobre el caso $\lambda > 1$.** En la cadena *truncada* la absorción en 0 es segura aunque $\lambda > 1$, porque el estado 0 es alcanzable desde todos los estados de un conjunto finito. El proceso original, en cambio, no se extingue con probabilidad $1 - q^{Z_0}$ (sección 5). La diferencia entre ambos es un efecto del truncamiento y se aprecia en la curva de absorción: la línea discontinua (proceso exacto) converge a $q^{Z_0}$ y la roja (cadena truncada) a 1.
-"""
-
 # ╔═╡ 4c85c2e9-5396-43d7-bea1-aed1414de316
 html"""
 <style>
@@ -1719,9 +1711,22 @@ html"""
 
 # ╔═╡ Cell order:
 # ╟─00000002-0002-0002-0002-000000000001
+# ╟─00000002-0002-0002-0002-000000000085
 # ╠═00000002-0002-0002-0002-000000000002
-# ╠═00000002-0002-0002-0002-000000000074
-# ╠═00000002-0002-0002-0002-000000000075
+# ╟─00000002-0002-0002-0002-000000000074
+# ╟─00000002-0002-0002-0002-000000000075
+# ╟─00000002-0002-0002-0002-000000000084
+# ╟─00000002-0002-0002-0002-000000000062
+# ╟─00000002-0002-0002-0002-000000000063
+# ╟─00000002-0002-0002-0002-000000000083
+# ╠═00000002-0002-0002-0002-000000000064
+# ╟─00000002-0002-0002-0002-000000000065
+# ╟─00000002-0002-0002-0002-000000000072
+# ╟─00000002-0002-0002-0002-000000000073
+# ╟─00000002-0002-0002-0002-000000000066
+# ╟─00000002-0002-0002-0002-000000000067
+# ╟─00000002-0002-0002-0002-000000000068
+# ╟─00000002-0002-0002-0002-000000000069
 # ╠═00000002-0002-0002-0002-000000000076
 # ╟─00000002-0002-0002-0002-000000000077
 # ╟─00000002-0002-0002-0002-000000000003
@@ -1759,7 +1764,7 @@ html"""
 # ╟─00000002-0002-0002-0002-000000000032
 # ╟─00000002-0002-0002-0002-000000000040
 # ╟─00000002-0002-0002-0002-000000000041
-# ╟─00000002-0002-0002-0002-000000000042
+# ╠═00000002-0002-0002-0002-000000000042
 # ╟─00000002-0002-0002-0002-000000000043
 # ╟─00000002-0002-0002-0002-000000000044
 # ╟─00000002-0002-0002-0002-000000000045
@@ -1770,16 +1775,4 @@ html"""
 # ╟─00000002-0002-0002-0002-000000000050
 # ╟─00000002-0002-0002-0002-000000000051
 # ╟─00000002-0002-0002-0002-000000000052
-# ╟─00000002-0002-0002-0002-000000000062
-# ╟─00000002-0002-0002-0002-000000000063
-# ╟─00000002-0002-0002-0002-000000000083
-# ╟─00000002-0002-0002-0002-000000000064
-# ╟─00000002-0002-0002-0002-000000000065
-# ╟─00000002-0002-0002-0002-000000000072
-# ╟─00000002-0002-0002-0002-000000000073
-# ╟─00000002-0002-0002-0002-000000000066
-# ╟─00000002-0002-0002-0002-000000000067
-# ╟─00000002-0002-0002-0002-000000000068
-# ╟─00000002-0002-0002-0002-000000000069
-# ╟─00000002-0002-0002-0002-000000000070
 # ╟─4c85c2e9-5396-43d7-bea1-aed1414de316
