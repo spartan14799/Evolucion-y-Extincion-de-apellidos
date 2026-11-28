@@ -95,24 +95,35 @@ begin
 end
 
 # ╔═╡ 00000002-0002-0002-0002-000000000085
-TableOfContents(title = "Índice", indent = true, depth = 4, aside = true)
+TableOfContents(title = "Índice", indent = true, depth = 5, aside = true)
 
 # ╔═╡ 00000002-0002-0002-0002-000000000002
 md"""
 # Modelo de Bienaymé–Galton–Watson (PBGW)
-## Extinción y supervivencia de apellidos como cadena de Markov de ramificación
+## ¿Se extinguirá un apellido? Un proceso de ramificación visto como cadena de Markov
 
 ---
 
-Este cuaderno estudia el **proceso de ramificación de Bienaymé–Galton–Watson** (PBGW) como una **cadena de Markov en tiempo discreto** sobre los enteros no negativos, y lo aplica al problema que motivó su introducción en el siglo XIX: determinar si un linaje que se transmite por línea paterna, como un apellido, se **extingue** o **persiste** en el tiempo. Bienaymé (1845) y, de forma independiente, Galton y Watson (1875) formularon el modelo para analizar la desaparición de apellidos aristocráticos.
+**La pregunta.** Si un apellido pasa de padres a hijos varones, ¿desaparece o sobrevive con el tiempo? Esta pregunta, planteada para los apellidos aristocráticos del siglo XIX, dio origen al **proceso de ramificación de Bienaymé–Galton–Watson** (PBGW). Bienaymé lo formuló en 1845 y, de forma independiente, Galton y Watson en 1875.
 
-El cuaderno combina tres elementos:
+**La idea en cuatro pasos.**
 
-1. **Fundamento teórico.** Definición del proceso, su caracterización como cadena de Markov (espacio de estados, distribución inicial y matriz de transición $P$), la función generadora de probabilidad (FGP) como herramienta de cálculo y el teorema de extinción.
-2. **Verificación computacional.** Cada resultado teórico se contrasta con las funciones del proyecto (`src/markovModels.jl` y `src/numericalMethods.jl`) y con simulación Monte Carlo.
-3. **Aplicación a los apellidos más frecuentes de Colombia**, con la matriz de transición construida de forma explícita.
+1. Cada portador del apellido tiene un número **aleatorio** de hijos varones, que heredarán el apellido.
+2. En cada generación contamos cuántos portadores hay: $Z_0, Z_1, Z_2, \dots$
+3. Si algún $Z_n$ llega a $0$, el apellido **se extingue** y no vuelve a aparecer.
+4. Casi todo depende de un único número, la **media de hijos varones por portador** ($m$): si $m \le 1$ la extinción es segura; si $m > 1$, el apellido puede sobrevivir.
 
-### Contenido de la parte teórica
+**Cómo está organizado el cuaderno.**
+
+| Parte | Qué contiene |
+|:--|:--|
+| **I. Fundamento teórico** | El modelo explicado paso a paso, con la cadena de Markov y su matriz de transición $P$ en vivo (sección 2.6) |
+| **II. Análisis interactivo** | Experimentos con la ley de descendencia, contrastados con las funciones del proyecto (`src/markovModels.jl` y `src/numericalMethods.jl`) y con simulación Monte Carlo |
+| **III. Aplicación a Colombia** | Cuándo se extinguirían los diez apellidos más frecuentes del país |
+
+Cada parte tiene **sus propios controles** (sliders): moverlos solo cambia las gráficas de esa parte. El **índice** de la derecha permite saltar a cualquier sección.
+
+**Contenido de la Parte I.**
 
 | Sección | Tema |
 |:--|:--|
@@ -133,7 +144,12 @@ md"""
 
 ## Parte I. Fundamento teórico
 
+Esta parte explica el modelo paso a paso. Si prefieres verlo en acción, puedes saltar a la sección 2.6 (la cadena en vivo) o a la Parte II, y volver aquí cuando necesites una definición.
+
 ### 1. Definición del proceso
+
+!!! tip "En palabras simples"
+    Imagina una generación de portadores del apellido. Cada uno tiene, al azar, cierto número de hijos varones (quizá ninguno). La siguiente generación está formada por todos esos hijos juntos, y el proceso se repite. $Z_n$ es el tamaño de la generación $n$.
 
 Sea $\{X_{n,i}\}_{n \ge 0,\; i \ge 1}$ una familia de variables aleatorias independientes e idénticamente distribuidas (i.i.d.) con valores en $\mathbb{N} = \{0, 1, 2, \dots\}$ y ley común
 
@@ -150,7 +166,7 @@ con la convención de que una suma vacía vale $0$. $Z_n$ es el número de indiv
 **Hipótesis.**
 
 * (H1) Las variables $X_{n,i}$ son independientes entre individuos y entre generaciones: lo que le ocurre a un individuo no afecta la descendencia de los demás.
-* (H2) Todas tienen la misma ley $\{p_k\}$: La cadena es homogénea.
+* (H2) Todas tienen la misma ley $\{p_k\}$: las reglas no cambian con el tiempo (la cadena es **homogénea**).
 * (H3) La media $m = \mathbb{E}[X] = \sum_k k\,p_k$ es finita.
 * (H4, no degeneración) $p_1 < 1$. Si $p_1 = 1$, cada individuo tiene exactamente un hijo, $Z_n \equiv z_0$ y no hay extinción.
 
@@ -171,6 +187,9 @@ con la convención de que una suma vacía vale $0$. $Z_n$ es el número de indiv
 # ╔═╡ 00000002-0002-0002-0002-000000000075
 md"""
 ### 2. El PBGW como cadena de Markov
+
+!!! tip "En palabras simples"
+    Una cadena de Markov es un proceso sin memoria: para saber qué pasará en la siguiente generación solo importa **cuántos portadores hay hoy**, no cómo se llegó a esa cifra. Toda la información se resume en una tabla, la **matriz de transición** $P$: la fila indica cuántos portadores hay hoy y la columna, cuántos habrá en la siguiente generación.
 
 Una cadena de Markov homogénea en tiempo discreto queda completamente caracterizada por tres objetos: el **espacio de estados**, la **distribución inicial** y la **matriz de transición**.
 
@@ -232,14 +251,24 @@ Además, la cadena tiene la **propiedad de ramificación**: partiendo de $i$ ind
 md"""
 #### 2.6 Visualización interactiva de la matriz $P$ y de la cadena
 
-Las celdas siguientes muestran de forma explícita la matriz de transición truncada (sección 7.1), el grafo de estados y la evolución de la distribución $\pi_n = \pi_0 P^n$ (sección 2.5). Se controlan con el tope de estados $M$, el estado inicial $Z_0$ y la generación $n$. La tasa de natalidad $\lambda$ es la del selector de apellidos de la Parte III.
+Las celdas siguientes muestran de forma explícita la matriz de transición truncada (sección 7.1), el grafo de estados y la evolución de la distribución $\pi_n = \pi_0 P^n$ (sección 2.5). Los controles de esta sección son propios y no dependen de las Partes II ni III: la tasa de natalidad $\lambda$ (descendencia Poisson), el tope de estados $M$, el estado inicial $Z_0$ y la generación $n$. Para ver el contraste, prueba un valor de $\lambda$ menor que $1$ y otro mayor que $1$, y observa hacia dónde se acumula la probabilidad.
+
+##### 2.6.1 Parámetros de la cadena
 """
 
+# ╔═╡ 00000002-0002-0002-0002-000000000086
+md"**Tasa de natalidad $\lambda$** (Poisson): $(@bind lambda_markov_slider Slider(0.1:0.1:3, default=0.5, show_value=true))"
+
 # ╔═╡ 00000002-0002-0002-0002-000000000062
-md"**Tope de estados a visualizar ($M$):** $(@bind M_slider Slider(4:1:12, default=8, show_value=true))"
+md"**Tope de estados a visualizar ($M$):** $(@bind M_slider Slider(3:1:12, default=8, show_value=true))"
 
 # ╔═╡ 00000002-0002-0002-0002-000000000063
-md"**Estado inicial $Z_0$ para la cadena:** $(@bind z0_markov_slider Slider(1:1:8, default=2, show_value=true))"
+md"**Estado inicial $Z_0$ para la cadena:** $(@bind z0_markov_slider Slider(1:1:8, default=1, show_value=true))"
+
+# ╔═╡ 00000002-0002-0002-0002-000000000087
+md"""
+##### 2.6.2 Matriz de transición truncada
+"""
 
 # ╔═╡ 00000002-0002-0002-0002-000000000083
 begin
@@ -266,758 +295,10 @@ begin
 	end
 end
 
-# ╔═╡ 00000002-0002-0002-0002-000000000072
-md"""
-##### Diagrama de estados de la cadena (grafo de transición)
-
-La cadena se visualiza como una **red dirigida** (ejemplo con $M = 3$: estados $0, 1, 2, 3+$):
-
-- **Nodos.** Estados de la cadena (cantidad de portadores vivos). El estado **0** (rojo) es el pozo absorbente.
-- **Flechas dirigidas.** Saltos de transición en un paso (una generación), rotulados con su probabilidad $P_{ij}$. Solo se dibujan las transiciones con probabilidad superior a 0.025.
-- **Flechas inferiores rojas y naranjas.** Camino de **decaimiento** ($i \to j$ con $j < i$); la roja es la que conduce a la extinción. Son las más gruesas en régimen subcrítico.
-- **Flechas superiores azules.** Camino de **crecimiento** del linaje ($i \to j$ con $j > i$).
-- **Autolazos.** Transición $i \to i$ (el tamaño no cambia). En el estado 0 tiene probabilidad $1.00$ y no hay flecha de salida.
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000066
-md"**Paso de tiempo / generación ($n$) para el vector de estado $\boldsymbol{\pi}_n$:** $(@bind gen_pi_slider Slider(0:1:25, default=3, show_value=true))"
-
-# ╔═╡ 00000002-0002-0002-0002-000000000076
-md"""
-### 3. La función generadora de probabilidad (FGP)
-
-#### 3.1 Definición
-
-Para una variable aleatoria $X$ con valores en $\mathbb{N}$ y $p_k = \mathbb{P}(X = k)$, su **función generadora de probabilidad** es
-
-$$g(t) = \mathbb{E}[t^X] = \sum_{k=0}^{\infty} p_k\, t^k, \qquad t \in [0,1].$$
-
-Es una serie de potencias cuyos **coeficientes son las probabilidades**: contiene exactamente la misma información que la sucesión $\left(p_0, p_1, p_2, \dots\right)$, escrita como un polinomio. La variable $t$ no representa ningún valor aleatorio: solo marca la posición $k$ de cada coeficiente.
-
-#### 3.2 Propiedades que se leen directamente
-
-| Propiedad | Consecuencia |
-|:--|:--|
-| $g(0) = p_0$ | Probabilidad de que un individuo no tenga hijos |
-| $g(1) = 1$ | Las probabilidades suman $1$ (siempre sirve como verificación) |
-| $g'(1) = \sum_k k\,p_k = m$ | Media de descendencia |
-| $g$ es creciente y **convexa** en $[0,1]$ | $g''(t) = \sum_k k(k-1)p_k t^{k-2} \ge 0$; es estrictamente convexa si $p_0 + p_1 < 1$ |
-
-#### 3.3 La propiedad clave: las sumas independientes se convierten en productos
-
-Si $X$ e $Y$ son independientes,
-
-$$\mathbb{E}\big[t^{X+Y}\big] = \mathbb{E}\big[t^{X}\, t^{Y}\big] = \mathbb{E}\big[t^{X}\big]\,\mathbb{E}\big[t^{Y}\big].$$
-
-La FGP de la suma es el producto de las FGP. Al multiplicar dos polinomios se multiplica cada término del primero por cada término del segundo y los **exponentes se suman**: el exponente $a + b$ representa "$a$ hijos del primer individuo más $b$ hijos del segundo". Al agrupar términos semejantes, el coeficiente de $t^j$ reúne (con sus probabilidades) todas las parejas que suman $j$. Por eso multiplicar polinomios equivale a convolucionar leyes.
-
-#### 3.4 La fila $i$ de $P$ sale de $g(t)^i$
-
-Dado $Z_n = i$, la siguiente generación es la suma de $i$ copias independientes de $X$, y su FGP es $g(t) \cdots g(t) = g(t)^i$. Por tanto
-
-$$\sum_{j \ge 0} P(i,j)\, t^j = \big[g(t)\big]^{i}.$$
-
-**Receta para obtener la fila $i$:** (1) escribir $g(t) = \sum_k p_k t^k$; (2) calcular el polinomio $[g(t)]^i$; (3) leer como $P(i,j)$ el coeficiente de $t^j$. Si $X$ pertenece a una familia cerrada bajo sumas (Bernoulli, Poisson, binomial negativa), el paso (2) puede omitirse: la suma de $i$ copias pertenece a la misma familia.
-
-#### 3.5 Ejemplo resuelto: descendencia uniforme en $\{0, 1, 2\}$
-
-Aquí $p_0 = p_1 = p_2 = 1/3$ y $g(t) = \tfrac13 (1 + t + t^2)$. La media es $m = 1$ (caso crítico). Los polinomios de las primeras filas son:
-
-| $i$ | $\big(1 + t + t^2\big)^i$ | Se divide entre |
-|:--|:--|:--|
-| 1 | $1 + t + t^2$ | $3$ |
-| 2 | $1 + 2t + 3t^2 + 2t^3 + t^4$ | $9$ |
-| 3 | $1 + 3t + 6t^2 + 7t^3 + 6t^4 + 3t^5 + t^6$ | $27$ |
-
-Para $i = 2$ hay $3 \times 3 = 9$ combinaciones equiprobables $\left(a,b\right)$ de hijos de cada individuo. Las parejas cuyo total es $0, 1, 2, 3, 4$ son $1, 2, 3, 2, 1$ respectivamente; de ahí los coeficientes de la segunda fila. Si se agrupa en un último estado "$3$ o más" todo lo que supera $2$ (truncamiento con $M = 3$), la matriz de transición es
-
-$$P = \begin{pmatrix}
-1 & 0 & 0 & 0 \\
-\tfrac{1}{3} & \tfrac{1}{3} & \tfrac{1}{3} & 0 \\
-\tfrac{1}{9} & \tfrac{2}{9} & \tfrac{3}{9} & \tfrac{3}{9} \\
-\tfrac{1}{27} & \tfrac{3}{27} & \tfrac{6}{27} & \tfrac{17}{27}
-\end{pmatrix},$$
-
-con $\mu_0 = (0, 1, 0, 0)$ si se parte de un individuo. La última entrada de la fila 2 es $\tfrac{2+1}{9}$ (totales $3$ y $4$) y la de la fila 3 es $\tfrac{7+6+3+1}{27}$ (totales $3$ a $6$).
-
-#### 3.6 Dos usos distintos de $g$: potencia frente a composición
-
-* **Potencia $g^i$** (multiplicar): más individuos **en la misma generación**. Da la fila $i$ de $P$.
-* **Composición $g \circ g$**: más **generaciones**. Da la ley de $Z_2$ partiendo de un individuo (sección 4).
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000077
-md"""
-### 4. Iteración de la FGP y ley de $Z_n$
-
-#### 4.1 Teorema (iteración)
-
-Sea $Z_0 = 1$ y $g_n(s) = \mathbb{E}[s^{Z_n}]$. Entonces
-
-$$g_1 = g, \qquad g_{n+1} = g_n \circ g = g \circ g_n, \qquad \text{es decir,} \qquad g_n = \underbrace{g \circ g \circ \cdots \circ g}_{n \text{ veces}} .$$
-
-*Demostración.* Se pueden condicionar dos instantes distintos.
-
-* Condicionando en $Z_n = i$, la FGP de $Z_{n+1}$ es $g(s)^i$ (sección 3.5). Luego $g_{n+1}(s) = \sum_i \mathbb{P}(Z_n = i)\, g(s)^i = g_n\big(g(s)\big)$, pues $\sum_i \mathbb{P}(Z_n = i)\,t^i$ es, por definición, $g_n(t)$ evaluada en $t = g(s)$.
-* Condicionando en $Z_1 = i$ y usando la propiedad de ramificación, $Z_{n+1}$ es la suma de $i$ copias independientes de $Z_n$ iniciadas en un individuo, con FGP $g_n(s)^i$. Luego $g_{n+1}(s) = \sum_i p_i\, g_n(s)^i = g\big(g_n(s)\big)$. $\square$
-
-Si $Z_0 = z_0$, por la propiedad de ramificación $\mathbb{E}[s^{Z_n}] = g_n(s)^{z_0}$.
-
-#### 4.2 Momentos
-
-Derivando $g_n(s) = g\big(g_{n-1}(s)\big)$ en $s = 1$ y usando $g_{n-1}(1) = 1$ resulta $g_n'(1) = g'(1)\, g_{n-1}'(1) = m\, g_{n-1}'(1)$. De aquí,
-
-$$\mathbb{E}[Z_n] = z_0\, m^{n}, \qquad \mathrm{Var}(Z_n) = \begin{cases} z_0\,\sigma^2\, m^{n-1}\,\dfrac{m^{n} - 1}{m - 1}, & m \ne 1, \\[2mm] z_0\,\sigma^2\, n, & m = 1. \end{cases}$$
-
-La media decae o crece de forma geométrica con razón $m$; es lo que representa la curva discontinua $\mathbb{E}[Z_n] = Z_0\,\lambda^n$ en la gráfica de trayectorias en escala logarítmica.
-
-#### 4.3 Distribución exacta del tiempo de extinción
-
-Como $0$ es absorbente, $\{T \le n\} = \{Z_n = 0\}$ y, por la propiedad de ramificación,
-
-$$\mathbb{P}(T \le n) = \mathbb{P}(Z_n = 0) = \big[g_n(0)\big]^{z_0}.$$
-
-La fórmula es **exacta** y se evalúa con $n$ aplicaciones de `fgp` a partir de $0$, mediante $g_{n+1}(0) = g\big(g_n(0)\big)$. El cuaderno la usa para contrastar la simulación Monte Carlo con la teoría.
-
-#### 4.4 Orden de magnitud del tiempo de extinción (caso subcrítico)
-
-Si $m < 1$ y $\mathbb{E}[X \ln X] < \infty$ (condición que cumple la ley de Poisson), existe una constante $c > 0$ tal que $1 - g_n(0) \sim c\, m^{n}$ cuando $n \to \infty$ (Athreya y Ney, 1972). Entonces
-
-$$\mathbb{P}(T \le n) = \big(1 - (1 - g_n(0))\big)^{z_0} \approx \exp\!\big(-z_0\, c\, m^{n}\big),$$
-
-y la mediana de $T$ cumple $z_0\, c\, m^{n} \approx \ln 2$, es decir,
-
-$$T_{\text{med}} \approx \frac{\ln z_0}{\ln(1/m)} + \frac{\ln(c/\ln 2)}{\ln(1/m)} .$$
-
-El término dominante, $\ln z_0 / \ln(1/m)$, es el que el cuaderno usa como "aproximación determinista"; la constante $c$ depende de la ley y aporta un desplazamiento de orden uno. **El tiempo de extinción crece con el logaritmo de la población inicial:** multiplicar $z_0$ por $k$ añade aproximadamente $\ln k / \ln(1/m)$ generaciones.
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000003
-md"""
-### 5. Probabilidad de extinción y regímenes
-
-#### 5.1 Definición
-
-$$q = \mathbb{P}(\text{extinción} \mid Z_0 = 1) = \mathbb{P}(T < \infty) = \lim_{n \to \infty} \mathbb{P}(Z_n = 0) = \lim_{n \to \infty} g_n(0).$$
-
-El límite existe porque los sucesos $\{Z_n = 0\}$ son crecientes: el $0$ es absorbente.
-
-#### 5.2 Teorema (Galton–Watson)
-
-Sea $p_1 < 1$. La probabilidad de extinción $q$ es la **menor raíz no negativa de la ecuación**
-
-$$g(s) = s, \qquad s \in [0, 1].$$
-
-Además, $q = 1$ si y solo si $m \le 1$. Si $m > 1$, entonces $q < 1$ y $q$ es la única raíz de $g(s) = s$ en $[0, 1)$.
-
-#### 5.3 Demostración
-
-**(i) $q$ es un punto fijo.** Se condiciona en el número de hijos del ancestro y se usa la propiedad de ramificación (cada hijo inicia un linaje independiente que se extingue con probabilidad $q$):
-
-$$q = \sum_{k \ge 0} p_k\, q^{k} = g(q).$$
-
-**(ii) $q$ es el menor punto fijo.** Sea $q_n = g_n(0) = \mathbb{P}(Z_n = 0)$. Se cumple $q_0 = 0$ y $q_{n+1} = g(q_n)$. Si $s^\ast \in [0,1]$ es cualquier punto fijo de $g$, como $g$ es creciente, $q_n \le s^\ast$ implica $q_{n+1} = g(q_n) \le g(s^\ast) = s^\ast$. Por inducción, $q_n \le s^\ast$ para todo $n$ y, pasando al límite, $q \le s^\ast$.
-
-**(iii) Localización de las raíces.** Sea $h(s) = g(s) - s$. Es convexa, con $h(0) = p_0 \ge 0$, $h(1) = 0$ y $h'(1) = m - 1$.
-
-* Si $m \le 1$: $h'(1) \le 0$ y, por convexidad (estricta bajo la hipótesis $p_1 < 1$), $h > 0$ en $[0,1)$. La única raíz es $1$, luego $q = 1$.
-* Si $m > 1$: $h'(1) > 0$, así que $h < 0$ a la izquierda de $1$, mientras que $h(0) = p_0 \ge 0$. Por el teorema del valor intermedio hay una raíz en $[0,1)$, única por convexidad. $\square$
-
-**Caso $Z_0 = z_0$.** Los $z_0$ linajes son independientes y todos deben extinguirse:
-
-$$\mathbb{P}(\text{extinción} \mid Z_0 = z_0) = q^{z_0}.$$
-
-Por eso el cuaderno compara la frecuencia observada con $q^{Z_0}$, y no con $q$, cuando $Z_0 > 1$.
-
-#### 5.4 Los tres regímenes
-
-| Régimen | Condición | $q$ | $\mathbb{E}[Z_n] = z_0 m^n$ | Función del proyecto |
-|:--|:--|:--|:--|:--|
-| **Subcrítico** | $m < 1$ | $q = 1$ | decae geométricamente | `es_extincion_segura() → true` |
-| **Crítico** | $m = 1$ | $q = 1$ | constante | `es_extincion_segura() → true` |
-| **Supercrítico** | $m > 1$ | $q < 1$ | crece geométricamente | `es_extincion_segura() → false` |
-
-* **Subcrítico.** El linaje se contrae y desaparece con rapidez geométrica de razón $m$.
-* **Crítico.** La extinción es segura aunque la media se mantenga constante: las trayectorias que sobreviven alcanzan tamaños cada vez mayores que compensan a las extintas. Si $\sigma^2 < \infty$, $n\,\mathbb{P}(Z_n > 0) \to 2/\sigma^2$ (Kolmogorov), de modo que la extinción es muy lenta.
-* **Supercrítico.** Con probabilidad $1 - q$ el linaje crece sin cota (dicotomía de la sección 6).
-* **Caso degenerado.** Si $p_1 = 1$ (cada individuo tiene un único hijo), $m = 1$ pero $q = 0$: no hay extinción. La hipótesis $p_1 < 1$ del teorema excluye este caso; el cuaderno lo trata de forma explícita.
-
-**Comportamiento cerca del umbral.** Al aproximarse a $m = 1$ por la derecha, $q \approx 1 - 2(m-1)/\sigma^2$. La función $q(m)$ es **continua pero no derivable en $m = 1$**: ese cambio cualitativo es la *transición de fase* que muestra la gráfica de $q$ frente a $m$.
-
-#### 5.5 Cálculo numérico de $q$
-
-Para $m > 1$ se resuelve $h(t) = g(t) - t = 0$. Como $t = 1$ siempre es raíz, se busca en $[0,\, 1 - \varepsilon]$ con $\varepsilon = 10^{-6}$. En ese intervalo $h(0) = p_0 > 0$ y $h(1-\varepsilon) < 0$, de modo que hay **cambio de signo** y el método de bisección converge a $q$. Para $m \le 1$, `probabilidad_extincion` devuelve directamente $1$. Una alternativa equivalente es la iteración de punto fijo $q_{n+1} = g(q_n)$ desde $q_0 = 0$, que converge de forma monótona a $q$ (paso (ii) de la demostración).
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000004
-md"""
-### 6. Clasificación de estados y comportamiento asintótico
-
-Se supone $p_0 > 0$ (con descendencia de Poisson, $p_0 = e^{-\lambda} > 0$ siempre).
-
-| Propiedad | Resultado | Justificación |
-|:--|:--|:--|
-| Estado $0$ | **absorbente** y recurrente | $P(0,0) = 1$ |
-| Estados $i \ge 1$ | **transitorios** | desde $i$ se llega a $0$ con probabilidad $p_0^{\,i} > 0$ y de $0$ no se regresa |
-| Irreducibilidad | **no irreducible** | de los estados positivos se llega a $0$, pero no al revés |
-| Clases de comunicación (Poisson) | $\{0\}$ cerrada y $\{1, 2, 3, \dots\}$ abierta | como $p_k > 0$ para todo $k$, los estados positivos se comunican entre sí |
-| Periodicidad | **aperiódica** | $P(i,i) > 0$ para todo $i$ |
-| Distribución estacionaria | única: $\delta_0$ | toda masa en estados transitorios termina disipándose |
-
-**Dicotomía fundamental.** Si $p_1 < 1$ y $Z_0 = 1$, entonces $\mathbb{P}(Z_n \to 0) = q$ y $\mathbb{P}(Z_n \to \infty) = 1 - q$. Ningún estado positivo es visitado infinitas veces, así que el proceso no puede estabilizarse en un tamaño finito positivo.
-
-**Límite de la distribución $\pi_n$.**
-
-* Si $m \le 1$: $\pi_n \to \delta_0$ para cualquier distribución inicial. Toda la masa de probabilidad termina concentrada en el estado $0$, y el tiempo de absorción es finito con probabilidad $1$.
-* Si $m > 1$: $\pi_n(0) \to q^{z_0}$ y $\pi_n(j) \to 0$ para todo $j \ge 1$. La masa restante, $1 - q^{z_0}$, escapa a infinito: no existe distribución límite sobre $S$.
-
-**Consecuencia para el muestreo.** Como el único estado recurrente es $0$ y no hay distribución estacionaria no trivial, no corresponde usar métodos MCMC (cuyo fin es muestrear una distribución estacionaria o *a posteriori*). Lo que interesa es la **trayectoria dinámica** hacia la extinción, y se estudia con **Monte Carlo directo** (hacia adelante) sobre la cadena $\{Z_n\}$.
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000078
-md"""
-### 7. Truncamiento del espacio de estados y métodos numéricos
-
-#### 7.1 Matriz de transición truncada
-
-La matriz $P$ es infinita. Para mostrarla de forma explícita se trunca a $S_M = \{0, 1, \dots, M\}$, agrupando en el último estado a todos los linajes con $M$ o más portadores:
-
-$$P_M(i,j) = P(i,j) \quad (0 \le j < M), \qquad P_M(i,M) = \sum_{j \ge M} P(i,j) = 1 - \sum_{j < M} P(i,j).$$
-
-Para el estado agregado "$M+$" se usa la fila del estado $M$. Esto es una **aproximación**: el proceso agregado no es exactamente markoviano, porque los estados $M, M+1, \dots$ tienen filas distintas. Tratar "$M+$" como si fuera exactamente $M$ subestima el tamaño del linaje y, por tanto, **sobrestima ligeramente la probabilidad de extinción**. El error es pequeño cuando es poco probable superar $M$ (régimen subcrítico con $M$ moderado); el cuaderno lo cuantifica comparando la curva $\mathbb{P}(Z_n = 0)$ de la cadena truncada con la fórmula exacta $[g_n(0)]^{z_0}$.
-
-#### 7.2 Atajo de Poisson para las filas de $P$
-
-Si $X \sim \mathrm{Poisson}(\lambda)$, la suma de $i$ copias independientes es $\mathrm{Poisson}(i\lambda)$. La fila $i$ de $P$ es entonces
-
-$$P(i,j) = e^{-i\lambda}\,\frac{(i\lambda)^{j}}{j!}, \qquad j \ge 0,$$
-
-sin necesidad de calcular convoluciones. La FGP lo confirma: $[g(t)]^i = \big(e^{\lambda(t-1)}\big)^i = e^{i\lambda(t-1)}$, que es la FGP de una Poisson$\left(i\lambda\right)$.
-
-**Nota de implementación.** El constructor `ModeloPBGW(λ; max_hijos)` corta la ley de Poisson en `max_hijos` y **renormaliza** el vector resultante. Para $\lambda \le 4$ y `max_hijos = 20` el error es inferior a $10^{-8}$. Pero para construir las filas de $P$ hace falta la **cola** $\mathbb{P}(X \ge M)$ de una Poisson$\left(i\lambda\right)$, y para ello hay que cortar muy por encima de $M$ (el cuaderno usa `max_hijos = 200`). Un corte en $M$ seguido de renormalización distorsionaría tanto las probabilidades individuales como la columna "$M+$": por ejemplo, con $\lambda = 0{,}5$ y $M = 3$ la entrada $P(3,3+)$ saldría $0{,}134$ en lugar del valor correcto $0{,}191$.
-
-#### 7.3 Métodos numéricos y simulación
-
-* **Bisección** (`biseccion` en `src/numericalMethods.jl`) sobre $h(t) = g(t) - t$, con tolerancia $10^{-5}$ tanto en el intervalo como en el valor de $h$. Converge linealmente y garantiza una raíz porque hay cambio de signo.
-* **Simulación hacia adelante** (`simular_generaciones`): en cada generación se sortea, para cada individuo vivo, su número de hijos con `Categorical(modelo.pk)` y se suman. Es Monte Carlo directo sobre la cadena $\{Z_n\}$.
-* **Estimador de extinción** (`frecuencia_extincion`): fracción de $N$ simulaciones con $Z_G = 0$. Estima $\mathbb{P}(Z_G = 0)$ y no $q^{z_0}$: como $\mathbb{P}(Z_G = 0)$ crece con $G$ hacia $q^{z_0}$, el estimador es una cota inferior de la extinción asintótica. Su error estándar es $\sqrt{\hat p(1-\hat p)/N}$.
-* **Tope de población** (`tope_poblacion`): en regímenes supercríticos, un linaje que supera el tope se declara establecido (ya no se extinguirá) y se detiene su simulación. Esto acota el costo computacional sin alterar de forma apreciable el resultado de extinción.
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000079
-md"""
-### 8. Supuestos y limitaciones del modelo aplicado a apellidos
-
-La aplicación a apellidos reales exige interpretar con cuidado los parámetros. Deben tenerse presentes las siguientes limitaciones al leer los resultados:
-
-1. **Transmisión patrilineal.** El primer apellido se hereda del padre, de modo que el proceso describe la **línea masculina**: $X$ es el número de **hijos varones** de un hombre y $\lambda$ su media. Si $\mathrm{TGF}$ es la tasa global de fecundidad y la proporción de varones al nacer es cercana a $0{,}512$, entonces $\lambda \approx 0{,}512 \cdot \mathrm{TGF}$, bajo el supuesto de que los hombres tienen en promedio tantos hijos como las mujeres.
-2. **Población inicial.** Los conteos usados como $Z_0$ corresponden a **personas** con el apellido, de ambos sexos. Estrictamente, $Z_0$ debería ser el número de **varones** portadores, aproximadamente la mitad. Usar el total sobrestima el tiempo de extinción en $\ln 2 / \ln(1/\lambda)$ generaciones (una generación cuando $\lambda = 0{,}5$).
-3. **Generaciones discretas y no solapadas.** El modelo agrupa el tiempo en generaciones sucesivas. La conversión a años usa una duración generacional constante de 28 años, que es un supuesto del modelo y no un dato.
-4. **Homogeneidad e independencia.** Todos los portadores comparten la misma ley de descendencia y se reproducen de forma independiente. Se ignoran las diferencias por región, nivel socioeconómico o cohorte, y la tasa se mantiene constante en el tiempo.
-5. **Forma de la ley.** La ley de Poisson impone varianza igual a la media. Otras leyes con la misma media dan el mismo $q$ cuando $m \le 1$ (extinción segura), pero distinto tiempo de extinción, porque la constante $c$ de la sección 4.4 depende de toda la ley.
-6. **Población cerrada.** No se consideran inmigración, cambios de apellido ni la aparición de nuevos portadores por mecanismos distintos de la descendencia paterna.
-7. **Truncamiento numérico.** La ley de Poisson se corta en `max_hijos` y se renormaliza (sección 7.2), con un error despreciable para los valores de $\lambda$ usados.
-
-Estas limitaciones afectan la interpretación cuantitativa. Las conclusiones cualitativas (extinción segura si $m \le 1$ y dependencia logarítmica de $Z_0$) son menos sensibles a ellas.
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000080
-md"""
-### 9. Referencias
-
-- Athreya, K. B. y Ney, P. E. (1972). *Branching Processes*. Springer.
-- Bienaymé, I.-J. (1845). De la loi de multiplication et de la durée des familles. *Société Philomathique de Paris, Extraits*, 5, 37–39.
-- DANE. *Estadísticas Vitales (EEVV): nacimientos y defunciones*, años 2024 y 2025 (preliminar).
-- Galton, F. y Watson, H. W. (1875). On the probability of the extinction of families. *Journal of the Anthropological Institute of Great Britain and Ireland*, 4, 138–144.
-- Grimmett, G. R. y Stirzaker, D. R. (2001). *Probability and Random Processes* (3.ª ed.). Oxford University Press. Sección 5.4.
-- Harris, T. E. (1963). *The Theory of Branching Processes*. Springer.
-- Norris, J. R. (1997). *Markov Chains*. Cambridge University Press.
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000005
-md"""
----
-
-## Parte II. Análisis interactivo del modelo
-
-### Panel de control
-
-Elija la ley de descendencia y sus parámetros. Todos los cálculos y gráficas siguientes se actualizan automáticamente.
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000006
-md"**Tipo de distribución de natalidad:** $(@bind dist_tipo Select([\"Poisson\" => \"Poisson (λ)\", \"Binomial\" => \"Binomial (n, p)\"], default=\"Poisson\"))"
-
-# ╔═╡ 00000002-0002-0002-0002-000000000007
-md"""
-!!! info "Leyes de descendencia disponibles"
-    - **Poisson(λ).** Cada portador tiene en promedio λ hijos y no existe un máximo fijo (el cuaderno corta la ley en 20 hijos y renormaliza). Es el modelo clásico y se construye con `ModeloPBGW(λ)`. La media es m = λ y la varianza σ² = λ.
-
-    - **Binomial(n, p).** Cada portador tiene como máximo `n` hijos, cada uno con probabilidad `p`. La media es m = n·p y la varianza σ² = n·p·(1 − p). Resulta apropiada cuando existe un número máximo natural de hijos. Se construye pasando el vector `pk` a `ModeloPBGW(pk)`.
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000008
-if dist_tipo == "Poisson"
-	md"**Tasa de natalidad λ** (media de hijos): $(@bind lambda_slider Slider(0.1:0.1:4.0, default=1.5, show_value=true))"
-else
-	md""
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000009
-if dist_tipo == "Binomial"
-	md"**Máximo de hijos (n):** $(@bind n_binom_slider Slider(1:1:15, default=5, show_value=true))"
-else
-	md""
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000010
-if dist_tipo == "Binomial"
-	md"**Probabilidad por hijo (p):** $(@bind p_binom_slider Slider(0.05:0.05:1.0, default=0.4, show_value=true))"
-else
-	md""
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000011
-md"**Población inicial de portadores** ($Z_0$): $(@bind z0_slider Slider(1:1:20, default=1, show_value=true))"
-
-# ╔═╡ 00000002-0002-0002-0002-000000000012
-md"**Generaciones a simular:** $(@bind gen_slider Slider(5:5:200, default=30, show_value=true))"
-
-# ╔═╡ 00000002-0002-0002-0002-000000000013
-md"**Semilla aleatoria:** $(@bind seed_slider Slider(1:100, default=42, show_value=true))"
-
-# ╔═╡ 00000002-0002-0002-0002-000000000014
-begin
-	# ── 1. Construcción del modelo de descendencia ──
-	if dist_tipo == "Poisson"
-		# Poisson(λ) cortada en 20 hijos y renormalizada (sección 7.2 del encabezado)
-		modelo = ModeloPBGW(lambda_slider; max_hijos=20)
-		param_str = "Poisson(λ=$(lambda_slider))"
-	else
-		# Binomial(n, p): tiene soporte finito {0, …, n}, así que no requiere truncamiento.
-		# pk_binom[k+1] = P(X = k)
-		dist_binom = Distributions.Binomial(n_binom_slider, p_binom_slider)
-		pk_binom = [pdf(dist_binom, k) for k in 0:n_binom_slider]
-		pk_binom = pk_binom ./ sum(pk_binom)  # corrige desvíos de redondeo en la suma
-		modelo = ModeloPBGW(pk_binom)
-		param_str = "Binomial(n=$(n_binom_slider), p=$(p_binom_slider))"
-	end
-
-	# ── 2. Cantidades teóricas (sección 5 del encabezado) ──
-	# Media de descendencia m = Σ k·pₖ  (= g'(1))
-	m_esperanza = esperanza(modelo)
-
-	# Caso degenerado p₁ = 1 (cada portador tiene exactamente un hijo): entonces
-	# Zₙ ≡ Z₀ y nunca hay extinción, aunque m = 1. El teorema de extinción exige
-	# p₁ < 1, así que este caso se trata aparte para no reportar q = 1 por error.
-	degenerado = length(modelo.pk) >= 2 && isapprox(modelo.pk[2], 1.0; atol = 1e-12)
-
-	# Probabilidad de extinción partiendo de un individuo: menor raíz de g(q) = q
-	q_extincion = degenerado ? 0.0 : probabilidad_extincion(modelo)
-	extincion_segura = !degenerado && es_extincion_segura(modelo)
-	regimen = degenerado ? "Degenerado (p₁ = 1)" : clasificar_regimen(m_esperanza)
-
-	# Con Z₀ portadores iniciales los linajes son independientes y todos deben
-	# extinguirse, de modo que P(extinción | Z₀) = q^Z₀  (sección 5.3)
-	q_z0 = q_extincion^z0_slider
-
-	texto_segura = if degenerado
-		"No (caso degenerado, p₁ = 1)"
-	else
-		extincion_segura ? "Sí (m ≤ 1)" : "No (m > 1)"
-	end
-
-	md"""
-	### Análisis del modelo: $(param_str)
-
-	| Parámetro | Valor |
-	|:--|:--|
-	| Distribución | **$(param_str)** |
-	| Media de descendencia (m) | **$(round(m_esperanza, digits=4))** — `esperanza(modelo)` |
-	| Régimen | **$(regimen)** |
-	| ¿Extinción segura? | **$(texto_segura)** — `es_extincion_segura(modelo)` |
-	| Probabilidad de extinción (q) | **$(round(q_extincion, digits=6))** — `probabilidad_extincion(modelo)` |
-	| Probabilidad de supervivencia (1 − q) | **$(round(1 - q_extincion, digits=6))** |
-	| Población inicial (Z₀) | **$(z0_slider)** |
-	| Probabilidad de extinción con Z₀ portadores (q^Z₀) | **$(round(q_z0, digits=6))** |
-	"""
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000015
-md"""
-### Distribución de descendencia $\{p_k\}$
-
-El vector `modelo.pk` almacena las probabilidades: `pk[1]` es $P(X=0)$, `pk[2]` es $P(X=1)$, y así sucesivamente (los vectores de Julia empiezan en el índice 1). La línea discontinua marca la media $m$.
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000016
-begin
-	# Se recorta la cola de probabilidad despreciable (< 1e-6) para que el eje sea legible
-	pk_vec = modelo.pk
-	ultimo_significativo = findlast(x -> x > 1e-6, pk_vec)
-	k_rango = 0:(ultimo_significativo - 1)        # k = número de hijos
-	pk_plot = pk_vec[1:ultimo_significativo]      # pₖ = P(X = k)
-
-	p_dist = bar(
-		collect(k_rango), pk_plot,
-		xlabel = "Número de hijos (k)",
-		ylabel = "Probabilidad P(X = k)",
-		title = "Distribución de descendencia — $(param_str)",
-		label = false, color = :teal, alpha = 0.8,
-		size = (800, 380), xticks = k_rango,
-		ylims = (0, 1.2 * maximum(pk_plot))       # margen superior para que ninguna barra toque el borde
-	)
-	vline!(p_dist, [m_esperanza],
-		label = "Media m = $(round(m_esperanza, digits=3))",
-		color = :red, linewidth = 2, linestyle = :dash)
-	p_dist
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000017
-md"""
-### Función generadora de probabilidad $g(t)$ y punto fijo
-
-`probabilidad_extincion()` calcula $q$ resolviendo $g(t) = t$ (sección 5):
-
-- **Panel izquierdo.** $g(t)$ frente a la identidad $y = t$. La probabilidad de extinción es la menor intersección de ambas curvas en $[0,1]$. En régimen subcrítico o crítico la única intersección es $t = 1$ y, por tanto, $q = 1$.
-- **Panel derecho.** $h(t) = g(t) - t$. La raíz de $h$ es $q$, hallada con `biseccion()`.
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000018
-begin
-	ts = range(0, 1, length=500)
-	# g(t) evaluada con la FGP del proyecto, y h(t) = g(t) − t, cuya raíz es q
-	g_vals = [fgp(modelo, t) for t in ts]
-	h_vals = g_vals .- ts
-
-	# ¿Existe una raíz de g(t) = t distinta de t = 1? (solo si el modelo es supercrítico)
-	hay_q_interior = q_extincion < 1.0 - 1e-6
-	etiqueta_t1 = hay_q_interior ? "t = 1 (raíz trivial)" : "t = 1 (única raíz, q = 1)"
-
-	p_fgp = plot(layout = (1, 2), size = (950, 440))
-
-	# Panel izquierdo: g(t) frente a la identidad
-	plot!(p_fgp[1], ts, g_vals, label = "g(t) = fgp(modelo, t)", color = :blue, linewidth = 2.5)
-	plot!(p_fgp[1], ts, ts, label = "y = t", color = :gray, linewidth = 1.5, linestyle = :dash)
-	if hay_q_interior
-		scatter!(p_fgp[1], [q_extincion], [q_extincion],
-			label = "q = $(round(q_extincion, digits=4))",
-			color = :red, markersize = 8, markershape = :star5)
-	end
-	scatter!(p_fgp[1], [1.0], [1.0], label = etiqueta_t1, color = :orange, markersize = 6)
-	plot!(p_fgp[1], xlabel = "t", ylabel = "g(t)", title = "FGP y punto fijo",
-		legend = :outerbottom)
-
-	# Panel derecho: h(t) = g(t) − t
-	plot!(p_fgp[2], ts, h_vals, label = "h(t) = g(t) − t", color = :purple, linewidth = 2.5)
-	hline!(p_fgp[2], [0], label = false, color = :gray, linestyle = :dash)
-	if hay_q_interior
-		scatter!(p_fgp[2], [q_extincion], [0],
-			label = "Raíz q = $(round(q_extincion, digits=4))",
-			color = :red, markersize = 8, markershape = :star5)
-	end
-	scatter!(p_fgp[2], [1.0], [0.0], label = etiqueta_t1, color = :orange, markersize = 6)
-	plot!(p_fgp[2], xlabel = "t", ylabel = "h(t)", title = "Raíz de h(t) — biseccion()",
-		legend = :outerbottom)
-
-	p_fgp
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000019
-md"""
-### Trayectorias del linaje — `simular_generaciones()`
-
-Cada trayectoria se genera con `simular_generaciones(modelo, gen; poblacion_inicial=Z₀)`, que simula la cadena $\{Z_n\}$ hacia adelante. Las trayectorias en rojo se extinguieron dentro del horizonte simulado y las verdes siguen vivas al final.
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000020
-md"**Número de trayectorias:** $(@bind n_traj_slider Slider(1:1:20, default=8, show_value=true))"
-
-# ╔═╡ 00000002-0002-0002-0002-000000000021
-begin
-	rng_traj = MersenneTwister(seed_slider)   # generador reproducible a partir de la semilla
-	tope_sim = 10_000                         # tope de población de la simulación (ver nota abajo)
-
-	# Se simulan todas las trayectorias con el mismo generador y en orden
-	trayectorias = [simular_generaciones(modelo, gen_slider;
-			poblacion_inicial = z0_slider, tope_poblacion = tope_sim, rng = rng_traj)
-		for _ in 1:n_traj_slider]
-
-	# Una trayectoria está extinta si termina en 0 al final del horizonte
-	extinta_flag = [tr[end] == 0 for tr in trayectorias]
-	n_extintas = count(extinta_flag)
-	n_vivas = n_traj_slider - n_extintas
-
-	# El eje vertical reserva espacio arriba para la leyenda, de modo que no tape las curvas
-	y_max_traj = maximum(maximum.(trayectorias))
-
-	p_traj = plot(
-		xlabel = "Generación (n)", ylabel = "Portadores (Zₙ)",
-		title = "Trayectorias de Zₙ — $(param_str), Z₀ = $(z0_slider)",
-		size = (850, 450), legend = :topleft,
-		ylims = (-0.03 * y_max_traj, 1.4 * y_max_traj),
-		grid = true, gridstyle = :dash, gridalpha = 0.3
-	)
-
-	# Solo se etiqueta la primera trayectoria de cada tipo para mantener breve la leyenda
-	i_primera_extinta = findfirst(extinta_flag)
-	i_primera_viva = findfirst(!, extinta_flag)
-	for (i, tr) in enumerate(trayectorias)
-		extinta = extinta_flag[i]
-		etiqueta = false
-		if extinta && i == i_primera_extinta
-			etiqueta = "Extinguida (Zₙ = 0)"
-		elseif !extinta && i == i_primera_viva
-			etiqueta = "Sobrevive"
-		end
-		plot!(p_traj, 0:(length(tr) - 1), tr, label = etiqueta,
-			color = extinta ? :red : :green,
-			alpha = extinta ? 0.55 : 0.8, linewidth = extinta ? 1.5 : 2.0)
-	end
-
-	# Nota: cuando un linaje alcanza el tope se declara "establecido" y su población
-	# se congela en el tope. La meseta resultante es un artefacto de la simulación,
-	# no un comportamiento del modelo, y se señala explícitamente.
-	if any(maximum(tr) >= tope_sim for tr in trayectorias)
-		hline!(p_traj, [tope_sim],
-			label = "Tope de simulación ($(tope_sim)): linaje establecido",
-			color = :gray, linestyle = :dot, linewidth = 1.5)
-	end
-
-	p_traj
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000022
-begin
-	# Probabilidad exacta de que el linaje ya se haya extinguido en la generación
-	# gen_slider: [g_G(0)]^Z₀  (sección 4.3). Es la referencia correcta para la
-	# frecuencia observada en un horizonte finito.
-	p_hasta_gen = prob_extincion_hasta(modelo, gen_slider, z0_slider)
-	frec_trayectorias = n_extintas / n_traj_slider
-
-	md"""
-	**De $(n_traj_slider) trayectorias:** $(n_extintas) extintas y $(n_vivas) con linaje vivo al final del horizonte.
-
-	| Cantidad | Valor |
-	|:--|:--|
-	| Frecuencia observada de extinción | **$(round(frec_trayectorias, digits=4))** |
-	| Probabilidad exacta de extinción hasta la generación $(gen_slider) | **$(round(p_hasta_gen, digits=4))** |
-	| Probabilidad asintótica de extinción, q^Z₀ | **$(round(q_z0, digits=4))** |
-
-	Con pocas trayectorias la frecuencia observada fluctúa mucho; la validación cuantitativa se hace en la sección siguiente con miles de simulaciones.
-	"""
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000023
-md"""
-### Validación Monte Carlo — `frecuencia_extincion()`
-
-Se contrasta la estimación empírica (`frecuencia_extincion`, Monte Carlo) con la teoría. Hay que comparar cantidades del mismo tipo:
-
-- `frecuencia_extincion(modelo, G)` estima $\mathbb{P}(Z_G = 0)$, la probabilidad de extinción **hasta la generación $G$**. Su valor exacto es $[g_G(0)]^{Z_0}$ (sección 4.3) y es la referencia contra la que se mide el error de Monte Carlo.
-- La probabilidad asintótica $q^{Z_0}$ es el límite de $\mathbb{P}(Z_G = 0)$ cuando $G \to \infty$. La frecuencia empírica nunca la supera y solo se le aproxima si $G$ es grande; cerca del umbral $m = 1$ la convergencia es lenta.
-
-El criterio de concordancia es estadístico: la diferencia entre la frecuencia observada y el valor exacto debe quedar dentro de tres errores estándar, $3\sqrt{p(1-p)/N}$.
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000024
-md"**Simulaciones Monte Carlo:** $(@bind n_mc_slider Slider(500:500:10000, default=3000, show_value=true))"
-
-# ╔═╡ 00000002-0002-0002-0002-000000000025
-begin
-	rng_mc = MersenneTwister(seed_slider + 7777)
-
-	# Estimación Monte Carlo con la función del proyecto: fracción de simulaciones con Z_G = 0
-	freq_mc = frecuencia_extincion(modelo, gen_slider;
-		n_sim=n_mc_slider, poblacion_inicial=z0_slider,
-		tope_poblacion=10_000, rng=rng_mc)
-
-	# Referencia teórica exacta al mismo horizonte G = gen_slider
-	p_exacta = prob_extincion_hasta(modelo, gen_slider, z0_slider)
-
-	# Error estándar del estimador (proporción binomial). El piso 1e-12 evita dividir
-	# por cero cuando p_exacta es 0 o 1.
-	se_mc = sqrt(max(p_exacta * (1 - p_exacta), 1e-12) / n_mc_slider)
-	diferencia = abs(freq_mc - p_exacta)
-	z_score = (freq_mc - p_exacta) / se_mc       # desviación en unidades de error estándar
-
-	concordancia = abs(z_score) <= 3 ? "Consistente (a menos de 3 errores estándar)" : "Discrepante (a más de 3 errores estándar)"
-	txt_diferencia = "$(round(diferencia, digits=6)) ($(round(z_score, digits=2)) errores estándar)"
-
-	md"""
-	| Medida | Valor | Cómo se obtiene |
-	|:--|:--|:--|
-	| Extinción asintótica, q^Z₀ | **$(round(q_z0, digits=6))** | `probabilidad_extincion(modelo)` elevada a Z₀ |
-	| Extinción exacta hasta la generación $(gen_slider) | **$(round(p_exacta, digits=6))** | iteración de `fgp`: [gₙ(0)]^Z₀ |
-	| Frecuencia empírica (N = $(n_mc_slider)) | **$(round(freq_mc, digits=6))** | `frecuencia_extincion(modelo, gen_slider)` |
-	| Error estándar | **$(round(se_mc, digits=6))** | √(p(1−p)/N) con p exacta |
-	| Diferencia respecto a la exacta | **$(txt_diferencia)** | |
-	| Concordancia | **$(concordancia)** | |
-	"""
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000026
-md"""
-### Transición de fase: extinción frente a supervivencia
-
-¿Cómo cambia $q$ al variar la media $m$? En $m = 1$ se produce una **transición de fase**: $q(m)$ es continua pero no derivable (sección 5.4).
-
-Cada punto se calcula con `probabilidad_extincion(ModeloPBGW(λ))`, con descendencia Poisson($\lambda$), para la cual $m = \lambda$:
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000027
-begin
-	lambdas = range(0.1, 4.0, length=100)
-	qs = Float64[]
-	for lam in lambdas
-		# Para cada λ se construye el modelo Poisson y se calcula q con el proyecto:
-		# q = 1 si λ ≤ 1; q = menor raíz de g(t) = t (bisección) si λ > 1
-		mod_temp = ModeloPBGW(lam; max_hijos=20)
-		push!(qs, probabilidad_extincion(mod_temp))
-	end
-
-	p_phase = plot(
-		lambdas, qs,
-		xlabel = "Tasa de natalidad (λ = media m)",
-		ylabel = "Probabilidad de extinción (q)",
-		title = "Transición de fase: q frente a m",
-		label = "q(m) — probabilidad_extincion()",
-		color = :darkblue, linewidth = 3,
-		size = (800, 420), ylims = (-0.05, 1.1), grid = true
-	)
-	vline!(p_phase, [1.0], label = "m = 1 (umbral)", color = :red, linestyle = :dash, linewidth = 2)
-
-	# Se marca el modelo actual solo si es Poisson (la curva q(m) es la de Poisson)
-	if dist_tipo == "Poisson"
-		scatter!(p_phase, [lambda_slider], [q_extincion],
-			label = "Modelo actual (λ=$(lambda_slider))",
-			color = :orange, markersize = 10, markershape = :star5)
-	end
-
-	annotate!(p_phase, 0.5, 0.3, text("Subcrítico\n(extinción segura)", 9, :red))
-	annotate!(p_phase, 2.5, 0.3, text("Supercrítico\n(supervivencia posible)", 9, :green))
-
-	p_phase
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000028
-md"""
-### Tabla resumen para distintas tasas de natalidad
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000029
-begin
-	lineas_tabla = [
-		"| λ (media m) | Régimen | q (extinción) | 1 − q (supervivencia) |",
-		"|:--|:--|:--|:--|"
-	]
-	for lam in [0.5, 0.8, 1.0, 1.2, 1.5, 2.0, 2.5, 3.0]
-		mod_t = ModeloPBGW(lam; max_hijos=20)
-		m_t = esperanza(mod_t)                  # media de descendencia del modelo
-		q_t = probabilidad_extincion(mod_t)     # probabilidad de extinción
-		push!(lineas_tabla, "| $(lam) | $(clasificar_regimen(m_t)) | $(round(q_t, digits=4)) | $(round(1 - q_t, digits=4)) |")
-	end
-	Markdown.parse(join(lineas_tabla, "\n"))
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000030
-md"""
-### Probabilidad de absorción con $Z_0 > 1$
-
-Cuando el linaje empieza con $Z_0 > 1$ portadores, cada uno genera un sublinaje **independiente** y todos deben extinguirse para que el apellido desaparezca (propiedad de ramificación, sección 2.5):
-
-$$P(\text{extinción} \mid Z_0) = q^{Z_0}.$$
-
-Esto puede verificarse con `frecuencia_extincion(modelo, gen; poblacion_inicial=Z₀)`.
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000031
-begin
-	z0_vals = 1:10
-	q_z0_vals = [q_extincion^z for z in z0_vals]       # q^Z₀ para Z₀ = 1, …, 10
-
-	# Formato de porcentaje que no oculta valores pequeños pero no nulos
-	function fmt_pct(x)
-		x == 0 && return "0%"
-		x < 0.001 && return "<0.1%"
-		return string(round(x * 100, digits = 1), "%")
-	end
-
-	p_absorcion = bar(
-		collect(z0_vals), q_z0_vals,
-		xlabel = "Población inicial Z₀",
-		ylabel = "P(extinción) = q^Z₀",
-		title = "Efecto de Z₀ — $(param_str) (q = $(round(q_extincion, digits=3)))",
-		label = false,
-		color = [qz < 0.5 ? :green : :red for qz in q_z0_vals],   # verde si la extinción es menos probable que no
-		alpha = 0.8, size = (800, 420), xticks = z0_vals,
-		ylims = (0, 1.3), yticks = 0:0.25:1                       # margen para etiquetas y leyenda; marcas solo en [0, 1]
-	)
-	hline!(p_absorcion, [0.5], label = "Umbral 50%", color = :gray, linestyle = :dash)
-	for (z, q_z) in zip(z0_vals, q_z0_vals)
-		annotate!(p_absorcion, z, q_z + 0.05, text(fmt_pct(q_z), 7, :center))
-	end
-	p_absorcion
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000032
-md"""
-### Resumen y conclusiones de la Parte II
-
-**Funciones del proyecto utilizadas en este cuaderno:**
-
-| Función | Archivo | Propósito |
-|:--|:--|:--|
-| `ModeloPBGW(λ)` / `ModeloPBGW(pk)` | `src/markovModels.jl` | Construir el modelo con descendencia Poisson o con un vector explícito |
-| `esperanza(modelo)` | `src/markovModels.jl` | Media de descendencia $m$ |
-| `es_extincion_segura(modelo)` | `src/markovModels.jl` | Verificar si $m \leq 1$ |
-| `fgp(modelo, t)` | `src/markovModels.jl` | Función generadora $g(t)$ |
-| `probabilidad_extincion(modelo)` | `src/markovModels.jl` | Resolver $g(t) = t$ con bisección |
-| `simular_generaciones(modelo, gen)` | `src/markovModels.jl` | Simular una trayectoria de $\{Z_n\}$ |
-| `frecuencia_extincion(modelo, gen)` | `src/markovModels.jl` | Monte Carlo: fracción de linajes extintos |
-| `biseccion(h, a, b)` | `src/numericalMethods.jl` | Búsqueda de raíces (usada internamente) |
-| `secante(h, a, b)` | `src/numericalMethods.jl` | Búsqueda de raíces (alternativa) |
-
-**Conclusiones principales:**
-
-- Todo depende de $m$: si $m \leq 1$ la extinción es segura; si $m > 1$ es posible la supervivencia.
-- La FGP y la bisección dan la probabilidad de extinción de forma exacta; la iteración $g_n(0)$ da además la probabilidad de extinción en cualquier generación finita.
-- Monte Carlo confirma la teoría: `frecuencia_extincion` coincide con $[g_G(0)]^{Z_0}$ dentro del error estadístico y se aproxima por debajo a `probabilidad_extincion` elevada a $Z_0$.
-- Con $Z_0 > 1$ portadores iniciales la probabilidad de extinción disminuye exponencialmente: $q^{Z_0}$.
-
----
-*Cuaderno interactivo del proyecto [Evolución y Extinción de Apellidos](https://github.com/spartan14799/Evolucion-y-Extincion-de-apellidos)*
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000040
-md"""
----
-
-## Parte III. Aplicación: ¿cuándo se extinguirán los apellidos de Colombia?
-### Proceso de Bienaymé–Galton–Watson con los apellidos más frecuentes del país
-
-#### Contexto demográfico
-
-La tasa global de fecundidad (TGF) de Colombia ha descendido de forma sostenida. Según el DANE (Estadísticas Vitales), fue de **1,1 hijos por mujer en 2024** y de **1,0 en 2025** (cifra preliminar), muy por debajo del nivel de reemplazo, de aproximadamente 2,1 hijos por mujer.
-
-Como tradicionalmente el primer apellido lo transmite el padre (supuesto 1 de la sección 8):
-
-- Con una TGF cercana a 1,0 y una proporción de varones al nacer de aproximadamente 0,512, cada hombre que porta el apellido tiene en promedio $\lambda \approx 0{,}51$ hijos varones que continuarán su linaje. El valor por defecto del control, $\lambda = 0{,}5$, resume este caso.
-- Como $m = \lambda < 1$, el linaje se encuentra en **régimen subcrítico** y, por el teorema de la sección 5, la extinción matemática es **segura** ($q = 1$).
-
-La pregunta relevante deja de ser *si* el apellido se extingue y pasa a ser **cuándo**: ¿en cuántas generaciones ocurrirá la extinción para los apellidos más numerosos de Colombia? El control de $\lambda$ admite valores mayores que 1 para explorar también el régimen supercrítico.
-"""
-
-# ╔═╡ 00000002-0002-0002-0002-000000000041
-md"**Seleccione un apellido de Colombia:** $(@bind ap_col_select Select([\"Rodríguez\" => \"1. Rodríguez (754.991 personas)\", \"Martínez\" => \"2. Martínez (602.593 personas)\", \"García\" => \"3. García (574.856 personas)\", \"Gómez\" => \"4. Gómez (569.534 personas)\", \"López\" => \"5. López (565.394 personas)\", \"Hernández\" => \"6. Hernández (502.626 personas)\", \"Pérez\" => \"7. Pérez (493.764 personas)\", \"Sánchez\" => \"8. Sánchez (487.112 personas)\", \"González\" => \"9. González (470.505 personas)\", \"Ramírez\" => \"10. Ramírez (441.179 personas)\"], default=\"Rodríguez\"))"
-
-# ╔═╡ 00000002-0002-0002-0002-000000000042
-md"**Tasa de natalidad masculina $\lambda$** (hijos varones promedio por hombre): $(@bind lambda_col_slider Slider(0.1:0.05:1.2, default=0.5, show_value=true))"
-
 # ╔═╡ 00000002-0002-0002-0002-000000000064
 begin
 	M_dim = M_slider
-	lambda_p = lambda_col_slider
+	lambda_p = lambda_markov_slider
 
 	# Matriz de transición explícita (filas = estado actual i, columnas = estado siguiente j)
 	P_mat = matriz_transicion_truncada(lambda_p, M_dim)
@@ -1062,91 +343,28 @@ begin
 	error_txt = @sprintf("%.1e", error_filas)
 
 	md"""
-	##### Interpretación directa de la matriz
+	##### 2.6.3 Interpretación directa de la matriz
 
-	- **Fila 0.** Es $[1.00, 0.00, 0.00, \ldots]$ y representa el **pozo absorbente**: una vez que el apellido llega a 0 portadores, nunca sale.
+	- **Fila cero.** Es $[1.00, 0.00, 0.00, \ldots]$ y representa el **pozo absorbente**: una vez que el apellido llega a 0 portadores, nunca sale.
 	- **Filas $i > 0$.** Entrada $\left(i,j\right)$ = probabilidad de pasar de $i$ a $j$ personas en la siguiente generación. Cada fila suma 1 (error numérico máximo: $(error_txt)).
 	- **Última fila y última columna ("$M+$").** La última columna acumula la probabilidad de alcanzar $M$ o más portadores. Los valores menores que 0.005 se muestran como 0.00.
 	- **Sesgo hacia la izquierda.** Cuando $\lambda < 1$, la masa de cada fila se concentra a la izquierda de la diagonal (hacia números menores de portadores), lo que empuja sistemáticamente la distribución hacia el estado 0. Si $\lambda > 1$, la masa se desplaza hacia la derecha.
 	"""
 end
 
-# ╔═╡ 00000002-0002-0002-0002-000000000067
-begin
-	M_curr = M_slider
-	z0_c = min(z0_markov_slider, M_curr)     # el estado inicial no puede superar el tope M
+# ╔═╡ 00000002-0002-0002-0002-000000000072
+md"""
+##### 2.6.4 Diagrama de estados de la cadena (grafo de transición)
 
-	# Distribución inicial μ₀ = δ_{z0} (sección 2.2): vector fila con un 1 en la
-	# posición z0 (índice z0+1) y ceros en las demás
-	pi_0 = zeros(Float64, M_curr + 1)
-	pi_0[z0_c + 1] = 1.0
-
-	# Distribución en la generación n: πₙ = π₀ Pⁿ (sección 2.5). Se aplica P una vez
-	# por generación: πₖ₊₁ = πₖ P (vector fila por matriz).
-	pi_n = copy(pi_0)
-	for _ in 1:gen_pi_slider
-		pi_n = vec(pi_n' * P_mat)
-	end
-
-	colores_pi = [k == 0 ? "#e53935" : "#1e88e5" for k in 0:M_curr]
-
-	# Ejes numéricos con marcas de texto: las anotaciones quedan centradas sobre las barras
-	p_bar_pi = bar(
-		0:M_curr, pi_n,
-		xticks = (0:M_curr, etiquetas_estados),
-		xlabel = "Número de portadores (estado)",
-		ylabel = "Probabilidad πₙ(k)",
-		title = "Distribución πₙ en la generación n = $(gen_pi_slider) (Z₀ = $(z0_c))",
-		color = colores_pi, alpha = 0.85, legend = false,
-		ylims = (0.0, 1.15), size = (800, 400)
-	)
-
-	# Porcentaje sobre las barras con masa apreciable
-	for (k, p_val) in zip(0:M_curr, pi_n)
-		if p_val > 0.015
-			annotate!(p_bar_pi, k, p_val + 0.04, text(@sprintf("%.1f%%", p_val * 100), 8, :center, :black, fuente_negrita))
-		end
-	end
-
-	p_bar_pi
-end
-
-# ╔═╡ 00000002-0002-0002-0002-000000000068
-begin
-	max_g_flujo = 20
-	M_flujo = M_slider
-	z0_f = min(z0_markov_slider, M_flujo)
-
-	# Cada fila de mat_flujo es πₙ para n = 0, 1, …, max_g_flujo (πₙ₊₁ = πₙ P)
-	mat_flujo = zeros(Float64, max_g_flujo + 1, M_flujo + 1)
-	vec_temp = zeros(Float64, M_flujo + 1)
-	vec_temp[z0_f + 1] = 1.0
-	mat_flujo[1, :] = vec_temp
-
-	for g in 1:max_g_flujo
-		vec_temp = vec(vec_temp' * P_mat)
-		mat_flujo[g + 1, :] = vec_temp
-	end
-
-	p_flujo = heatmap(
-		0:M_flujo, 0:max_g_flujo, mat_flujo,
-		yflip = true,
-		xticks = (0:M_flujo, etiquetas_estados), yticks = 0:2:max_g_flujo,
-		title = "Evolución del flujo de probabilidad desde Z₀ = $(z0_f)",
-		xlabel = "Estado (portadores)", ylabel = "Generación (n)",
-		colorbar_title = "Probabilidad",
-		color = cmap_mat_markov, clims = (0.0, 1.0),
-		size = (760, 540)
-	)
-	p_flujo
-end
+Cada círculo es un estado (número de portadores) y cada flecha, una transición de una generación con su probabilidad. En rojo, el camino hacia la extinción; en naranja, la disminución sin llegar a $0$; en azul, el crecimiento; y una flecha que vuelve al mismo círculo indica que el tamaño no cambia.
+"""
 
 # ╔═╡ 00000002-0002-0002-0002-000000000073
 begin
 	# Modelo de juguete para el grafo: estados 0, 1, 2, 3+ (M = 3), con la misma
 	# función que construye la matriz de la sección anterior
 	M_toy = 3
-	P_toy = matriz_transicion_truncada(lambda_col_slider, M_toy)
+	P_toy = matriz_transicion_truncada(lambda_markov_slider, M_toy)
 
 	# ── Geometría, en coordenadas de datos (aspect_ratio = :equal da círculos reales) ──
 	xs_toy = [0.0, 3.6, 7.2, 10.8]                  # centros de los nodos (todos en y = 0)
@@ -1234,7 +452,7 @@ begin
 	p_diag_markov = plot(
 		xlims = (x_lo, x_hi), ylims = (y_bot, y_top),
 		aspect_ratio = :equal,
-		title = "Grafo dirigido de transiciones (M = 3, λ = $(@sprintf("%.2f", lambda_col_slider)))",
+		title = "Grafo dirigido de transiciones (M = 3, λ = $(@sprintf("%.2f", lambda_markov_slider)))",
 		legend = false, grid = false, framestyle = :none,
 		size = (940, round(Int, 940 * (y_top - y_bot) / (x_hi - x_lo)) + 70)
 	)
@@ -1285,6 +503,885 @@ begin
 	p_diag_markov
 end
 
+# ╔═╡ 00000002-0002-0002-0002-000000000088
+md"""
+##### 2.6.5 Distribución $\pi_n$ en la generación $n$
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000066
+md"**Paso de tiempo / generación ($n$) para el vector de estado $\boldsymbol{\pi}_n$:** $(@bind gen_pi_slider Slider(0:1:25, default=3, show_value=true))"
+
+# ╔═╡ 00000002-0002-0002-0002-000000000067
+begin
+	M_curr = M_slider
+	z0_c = min(z0_markov_slider, M_curr)     # el estado inicial no puede superar el tope M
+
+	# Distribución inicial μ₀ = δ_{z0} (sección 2.2): vector fila con un 1 en la
+	# posición z0 (índice z0+1) y ceros en las demás
+	pi_0 = zeros(Float64, M_curr + 1)
+	pi_0[z0_c + 1] = 1.0
+
+	# Distribución en la generación n: πₙ = π₀ Pⁿ (sección 2.5). Se aplica P una vez
+	# por generación: πₖ₊₁ = πₖ P (vector fila por matriz).
+	pi_n = copy(pi_0)
+	for _ in 1:gen_pi_slider
+		pi_n = vec(pi_n' * P_mat)
+	end
+
+	colores_pi = [k == 0 ? "#e53935" : "#1e88e5" for k in 0:M_curr]
+
+	# Ejes numéricos con marcas de texto: las anotaciones quedan centradas sobre las barras
+	p_bar_pi = bar(
+		0:M_curr, pi_n,
+		xticks = (0:M_curr, etiquetas_estados),
+		xlabel = "Número de portadores (estado)",
+		ylabel = "Probabilidad πₙ(k)",
+		title = "Distribución πₙ en la generación n = $(gen_pi_slider) (Z₀ = $(z0_c))",
+		color = colores_pi, alpha = 0.85, legend = false,
+		ylims = (0.0, 1.15), size = (800, 400)
+	)
+
+	# Porcentaje sobre las barras con masa apreciable
+	for (k, p_val) in zip(0:M_curr, pi_n)
+		if p_val > 0.015
+			annotate!(p_bar_pi, k, p_val + 0.04, text(@sprintf("%.1f%%", p_val * 100), 8, :center, :black, fuente_negrita))
+		end
+	end
+
+	p_bar_pi
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000089
+md"""
+##### 2.6.6 Evolución del flujo de probabilidad
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000068
+begin
+	max_g_flujo = 20
+	M_flujo = M_slider
+	z0_f = min(z0_markov_slider, M_flujo)
+
+	# Cada fila de mat_flujo es πₙ para n = 0, 1, …, max_g_flujo (πₙ₊₁ = πₙ P)
+	mat_flujo = zeros(Float64, max_g_flujo + 1, M_flujo + 1)
+	vec_temp = zeros(Float64, M_flujo + 1)
+	vec_temp[z0_f + 1] = 1.0
+	mat_flujo[1, :] = vec_temp
+
+	for g in 1:max_g_flujo
+		vec_temp = vec(vec_temp' * P_mat)
+		mat_flujo[g + 1, :] = vec_temp
+	end
+
+	p_flujo = heatmap(
+		0:M_flujo, 0:max_g_flujo, mat_flujo,
+		yflip = true,
+		xticks = (0:M_flujo, etiquetas_estados), yticks = 0:2:max_g_flujo,
+		title = "Evolución del flujo de probabilidad desde Z₀ = $(z0_f)",
+		xlabel = "Estado (portadores)", ylabel = "Generación (n)",
+		colorbar_title = "Probabilidad",
+		color = cmap_mat_markov, clims = (0.0, 1.0),
+		size = (760, 540)
+	)
+	p_flujo
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000090
+md"""
+##### 2.6.7 Curva de absorción: cadena truncada frente al proceso exacto
+
+La curva roja es la probabilidad de que la cadena truncada ya esté en el estado $0$ en la generación $n$, y la discontinua negra es la del proceso exacto. Si $\lambda \le 1$ son parecidas (la truncada queda ligeramente por encima, sección 7.1). Si $\lambda > 1$ se separan: el proceso exacto se estabiliza en $q^{Z_0} < 1$, porque el apellido puede sobrevivir, mientras que la cadena truncada termina en $1$, ya que al agrupar los estados "$M$ o más" desde cualquiera de ellos hay siempre cierta probabilidad de extinguirse. Esa diferencia es un efecto del truncamiento, no del modelo.
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000069
+begin
+	gens_curva_p = 0:25
+	z0_curva = min(z0_markov_slider, M_dim)
+
+	# Curva de la cadena truncada: P(Zₙ = 0) es la componente 0 de πₙ = π₀ Pⁿ
+	prob_ext_cadena = Float64[]
+	vec_t = zeros(Float64, M_dim + 1)
+	vec_t[z0_curva + 1] = 1.0
+	for g in gens_curva_p
+		push!(prob_ext_cadena, vec_t[1])          # P(Z_g = 0)
+		vec_t = vec(vec_t' * P_mat)
+	end
+
+	# Modelo exacto (sin truncar) con el mismo λ de esta sección
+	modelo_cadena = ModeloPBGW(lambda_markov_slider; max_hijos = 20)
+
+	# Curva exacta del proceso sin truncar: P(Zₙ = 0) = [gₙ(0)]^Z₀ (sección 4.3)
+	prob_ext_exacta = prob_extincion_curva(modelo_cadena, last(gens_curva_p), z0_curva)
+
+	# La leyenda va debajo del área de datos para no tapar ninguna de las curvas
+	p_ext_acum = plot(
+		gens_curva_p, prob_ext_cadena,
+		xlabel = "Generación (n)", ylabel = "Probabilidad acumulada P(Zₙ = 0)",
+		title = "Curva de absorción: ¿con qué rapidez cae la cadena al estado 0?",
+		label = "Cadena truncada (matriz P)", color = :red, linewidth = 3,
+		size = (800, 460), ylims = (0.0, 1.05), grid = true,
+		legend = :outerbottom, legend_columns = 2
+	)
+	plot!(p_ext_acum, gens_curva_p, prob_ext_exacta,
+		label = "Proceso exacto: [gₙ(0)]^Z₀", color = :black, linewidth = 2, linestyle = :dash)
+	hline!(p_ext_acum, [0.5], label = "Mediana (50 %)", color = :gray, linestyle = :dash)
+	hline!(p_ext_acum, [1.0], label = "Absorción total (100 %)", color = :black, linestyle = :dot)
+	p_ext_acum
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000076
+md"""
+### 3. La función generadora de probabilidad (FGP)
+
+!!! tip "En palabras simples"
+    La FGP es una forma compacta de guardar la ley de descendencia: un polinomio cuyos coeficientes son las probabilidades de tener $0, 1, 2, \dots$ hijos. Su gran ventaja es que **sumar** variables independientes equivale a **multiplicar** polinomios, y eso permite calcular casi todo lo que necesitamos sin hacer convoluciones a mano.
+
+#### 3.1 Definición
+
+Para una variable aleatoria $X$ con valores en $\mathbb{N}$ y $p_k = \mathbb{P}(X = k)$, su **función generadora de probabilidad** es
+
+$$g(t) = \mathbb{E}[t^X] = \sum_{k=0}^{\infty} p_k\, t^k, \qquad t \in [0,1].$$
+
+Es una serie de potencias cuyos **coeficientes son las probabilidades**: contiene exactamente la misma información que la sucesión $\left(p_0, p_1, p_2, \dots\right)$, escrita como un polinomio. La variable $t$ no representa ningún valor aleatorio: solo marca la posición $k$ de cada coeficiente.
+
+#### 3.2 Propiedades que se leen directamente
+
+| Propiedad | Consecuencia |
+|:--|:--|
+| $g(0) = p_0$ | Probabilidad de que un individuo no tenga hijos |
+| $g(1) = 1$ | Las probabilidades suman $1$ (siempre sirve como verificación) |
+| $g'(1) = \sum_k k\,p_k = m$ | Media de descendencia |
+| $g$ es creciente y **convexa** en $[0,1]$ | $g''(t) = \sum_k k(k-1)p_k t^{k-2} \ge 0$; es estrictamente convexa si $p_0 + p_1 < 1$ |
+
+#### 3.3 La propiedad clave: las sumas independientes se convierten en productos
+
+Si $X$ e $Y$ son independientes,
+
+$$\mathbb{E}\big[t^{X+Y}\big] = \mathbb{E}\big[t^{X}\, t^{Y}\big] = \mathbb{E}\big[t^{X}\big]\,\mathbb{E}\big[t^{Y}\big].$$
+
+La FGP de la suma es el producto de las FGP. Al multiplicar dos polinomios se multiplica cada término del primero por cada término del segundo y los **exponentes se suman**: el exponente $a + b$ representa "$a$ hijos del primer individuo más $b$ hijos del segundo". Al agrupar términos semejantes, el coeficiente de $t^j$ reúne (con sus probabilidades) todas las parejas que suman $j$. Por eso multiplicar polinomios equivale a convolucionar leyes.
+
+#### 3.4 La fila $i$ de $P$ sale de $g(t)^i$
+
+Dado $Z_n = i$, la siguiente generación es la suma de $i$ copias independientes de $X$, y su FGP es $g(t) \cdots g(t) = g(t)^i$. Por tanto
+
+$$\sum_{j \ge 0} P(i,j)\, t^j = \big[g(t)\big]^{i}.$$
+
+**Receta para obtener la fila $i$:** (1) escribir $g(t) = \sum_k p_k t^k$; (2) calcular el polinomio $[g(t)]^i$; (3) leer como $P(i,j)$ el coeficiente de $t^j$. Si $X$ pertenece a una familia cerrada bajo sumas (Bernoulli, Poisson, binomial negativa), el paso (2) puede omitirse: la suma de $i$ copias pertenece a la misma familia.
+
+#### 3.5 Ejemplo resuelto: descendencia uniforme en $\{0, 1, 2\}$
+
+Aquí $p_0 = p_1 = p_2 = 1/3$ y $g(t) = \tfrac13 (1 + t + t^2)$. La media es $m = 1$ (caso crítico). Los polinomios de las primeras filas son:
+
+| $i$ | $\big(1 + t + t^2\big)^i$ | Se divide entre |
+|:--|:--|:--|
+| 1 | $1 + t + t^2$ | $3$ |
+| 2 | $1 + 2t + 3t^2 + 2t^3 + t^4$ | $9$ |
+| 3 | $1 + 3t + 6t^2 + 7t^3 + 6t^4 + 3t^5 + t^6$ | $27$ |
+
+Para $i = 2$ hay $3 \times 3 = 9$ combinaciones equiprobables $\left(a,b\right)$ de hijos de cada individuo. Las parejas cuyo total es $0, 1, 2, 3, 4$ son $1, 2, 3, 2, 1$ respectivamente; de ahí los coeficientes de la segunda fila. Si se agrupa en un último estado "$3$ o más" todo lo que supera $2$ (truncamiento con $M = 3$), la matriz de transición es
+
+$$P = \begin{pmatrix}
+1 & 0 & 0 & 0 \\
+\tfrac{1}{3} & \tfrac{1}{3} & \tfrac{1}{3} & 0 \\
+\tfrac{1}{9} & \tfrac{2}{9} & \tfrac{3}{9} & \tfrac{3}{9} \\
+\tfrac{1}{27} & \tfrac{3}{27} & \tfrac{6}{27} & \tfrac{17}{27}
+\end{pmatrix},$$
+
+con $\mu_0 = (0, 1, 0, 0)$ si se parte de un individuo. La última entrada de la fila 2 es $\tfrac{2+1}{9}$ (totales $3$ y $4$) y la de la fila 3 es $\tfrac{7+6+3+1}{27}$ (totales $3$ a $6$).
+
+#### 3.6 Dos usos distintos de $g$: potencia frente a composición
+
+* **Potencia $g^i$** (multiplicar): más individuos **en la misma generación**. Da la fila $i$ de $P$.
+* **Composición $g \circ g$**: más **generaciones**. Da la ley de $Z_2$ partiendo de un individuo (sección 4).
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000077
+md"""
+### 4. Iteración de la FGP y ley de $Z_n$
+
+!!! tip "En palabras simples"
+    Para describir la generación $n$ basta aplicar la FGP $n$ veces seguidas, $g \circ g \circ \cdots \circ g$: es repetir el mismo paso generación tras generación. De ahí salen la media, la varianza y la probabilidad de que el apellido ya se haya extinguido en la generación $n$.
+
+#### 4.1 Teorema (iteración)
+
+Sea $Z_0 = 1$ y $g_n(s) = \mathbb{E}[s^{Z_n}]$. Entonces
+
+$$g_1 = g, \qquad g_{n+1} = g_n \circ g = g \circ g_n, \qquad \text{es decir,} \qquad g_n = \underbrace{g \circ g \circ \cdots \circ g}_{n \text{ veces}} .$$
+
+*Demostración.* Se pueden condicionar dos instantes distintos.
+
+* Condicionando en $Z_n = i$, la FGP de $Z_{n+1}$ es $g(s)^i$ (sección 3.4). Luego $g_{n+1}(s) = \sum_i \mathbb{P}(Z_n = i)\, g(s)^i = g_n\big(g(s)\big)$, pues $\sum_i \mathbb{P}(Z_n = i)\,t^i$ es, por definición, $g_n(t)$ evaluada en $t = g(s)$.
+* Condicionando en $Z_1 = i$ y usando la propiedad de ramificación, $Z_{n+1}$ es la suma de $i$ copias independientes de $Z_n$ iniciadas en un individuo, con FGP $g_n(s)^i$. Luego $g_{n+1}(s) = \sum_i p_i\, g_n(s)^i = g\big(g_n(s)\big)$. $\square$
+
+Si $Z_0 = z_0$, por la propiedad de ramificación $\mathbb{E}[s^{Z_n}] = g_n(s)^{z_0}$.
+
+#### 4.2 Momentos
+
+Derivando $g_n(s) = g\big(g_{n-1}(s)\big)$ en $s = 1$ y usando $g_{n-1}(1) = 1$ resulta $g_n'(1) = g'(1)\, g_{n-1}'(1) = m\, g_{n-1}'(1)$. De aquí,
+
+$$\mathbb{E}[Z_n] = z_0\, m^{n}, \qquad \mathrm{Var}(Z_n) = \begin{cases} z_0\,\sigma^2\, m^{n-1}\,\dfrac{m^{n} - 1}{m - 1}, & m \ne 1, \\[2mm] z_0\,\sigma^2\, n, & m = 1. \end{cases}$$
+
+La media decae o crece de forma geométrica con razón $m$; es lo que representa la curva discontinua $\mathbb{E}[Z_n] = Z_0\,\lambda^n$ en la gráfica de trayectorias en escala logarítmica.
+
+#### 4.3 Distribución exacta del tiempo de extinción
+
+Como $0$ es absorbente, $\{T \le n\} = \{Z_n = 0\}$ y, por la propiedad de ramificación,
+
+$$\mathbb{P}(T \le n) = \mathbb{P}(Z_n = 0) = \big[g_n(0)\big]^{z_0}.$$
+
+La fórmula es **exacta** y se evalúa con $n$ aplicaciones de `fgp` a partir de $0$, mediante $g_{n+1}(0) = g\big(g_n(0)\big)$. El cuaderno la usa para contrastar la simulación Monte Carlo con la teoría.
+
+#### 4.4 Orden de magnitud del tiempo de extinción (caso subcrítico)
+
+Si $m < 1$ y $\mathbb{E}[X \ln X] < \infty$ (condición que cumple la ley de Poisson), existe una constante $c > 0$ tal que $1 - g_n(0) \sim c\, m^{n}$ cuando $n \to \infty$ (Athreya y Ney, 1972). Entonces
+
+$$\mathbb{P}(T \le n) = \big(1 - (1 - g_n(0))\big)^{z_0} \approx \exp\!\big(-z_0\, c\, m^{n}\big),$$
+
+y la mediana de $T$ cumple $z_0\, c\, m^{n} \approx \ln 2$, es decir,
+
+$$T_{\text{med}} \approx \frac{\ln z_0}{\ln(1/m)} + \frac{\ln(c/\ln 2)}{\ln(1/m)} .$$
+
+El término dominante, $\ln z_0 / \ln(1/m)$, es el que el cuaderno usa como "aproximación determinista"; la constante $c$ depende de la ley y aporta un desplazamiento de orden uno. **El tiempo de extinción crece con el logaritmo de la población inicial:** multiplicar $z_0$ por $k$ añade aproximadamente $\ln k / \ln(1/m)$ generaciones.
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000003
+md"""
+### 5. Probabilidad de extinción y regímenes
+
+!!! tip "En palabras simples"
+    La probabilidad de extinción $q$ es la **menor solución** de la ecuación $g(s) = s$. Si cada portador tiene en promedio $m \le 1$ hijos, la extinción es segura ($q = 1$). Si $m > 1$, hay una probabilidad positiva, $1 - q$, de que el apellido sobreviva para siempre (salvo en el caso degenerado en que todos tienen exactamente un hijo).
+
+#### 5.1 Definición
+
+$$q = \mathbb{P}(\text{extinción} \mid Z_0 = 1) = \mathbb{P}(T < \infty) = \lim_{n \to \infty} \mathbb{P}(Z_n = 0) = \lim_{n \to \infty} g_n(0).$$
+
+El límite existe porque los sucesos $\{Z_n = 0\}$ son crecientes: el $0$ es absorbente.
+
+#### 5.2 Teorema (Galton–Watson)
+
+Sea $p_1 < 1$. La probabilidad de extinción $q$ es la **menor raíz no negativa de la ecuación**
+
+$$g(s) = s, \qquad s \in [0, 1].$$
+
+Además, $q = 1$ si y solo si $m \le 1$. Si $m > 1$, entonces $q < 1$ y $q$ es la única raíz de $g(s) = s$ en $[0, 1)$.
+
+#### 5.3 Demostración
+
+**(i) $q$ es un punto fijo.** Se condiciona en el número de hijos del ancestro y se usa la propiedad de ramificación (cada hijo inicia un linaje independiente que se extingue con probabilidad $q$):
+
+$$q = \sum_{k \ge 0} p_k\, q^{k} = g(q).$$
+
+**(ii) $q$ es el menor punto fijo.** Sea $q_n = g_n(0) = \mathbb{P}(Z_n = 0)$. Se cumple $q_0 = 0$ y $q_{n+1} = g(q_n)$. Si $s^\ast \in [0,1]$ es cualquier punto fijo de $g$, como $g$ es creciente, $q_n \le s^\ast$ implica $q_{n+1} = g(q_n) \le g(s^\ast) = s^\ast$. Por inducción, $q_n \le s^\ast$ para todo $n$ y, pasando al límite, $q \le s^\ast$.
+
+**(iii) Localización de las raíces.** Sea $h(s) = g(s) - s$. Es convexa, con $h(0) = p_0 \ge 0$, $h(1) = 0$ y $h'(1) = m - 1$.
+
+* Si $m \le 1$: $h'(1) \le 0$ y, por convexidad (estricta bajo la hipótesis $p_1 < 1$), $h > 0$ en $[0,1)$. La única raíz es $1$, luego $q = 1$.
+* Si $m > 1$: $h'(1) > 0$, así que $h < 0$ a la izquierda de $1$, mientras que $h(0) = p_0 \ge 0$. Por el teorema del valor intermedio hay una raíz en $[0,1)$, única por convexidad. $\square$
+
+**Caso $Z_0 = z_0$.** Los $z_0$ linajes son independientes y todos deben extinguirse:
+
+$$\mathbb{P}(\text{extinción} \mid Z_0 = z_0) = q^{z_0}.$$
+
+Por eso el cuaderno compara la frecuencia observada con $q^{Z_0}$, y no con $q$, cuando $Z_0 > 1$.
+
+#### 5.4 Los tres regímenes
+
+| Régimen | Condición | $q$ | $\mathbb{E}[Z_n] = z_0 m^n$ | Función del proyecto |
+|:--|:--|:--|:--|:--|
+| **Subcrítico** | $m < 1$ | $q = 1$ | decae geométricamente | `es_extincion_segura() → true` |
+| **Crítico** | $m = 1$ | $q = 1$ | constante | `es_extincion_segura() → true` |
+| **Supercrítico** | $m > 1$ | $q < 1$ | crece geométricamente | `es_extincion_segura() → false` |
+
+* **Subcrítico.** El linaje se contrae y desaparece con rapidez geométrica de razón $m$.
+* **Crítico.** La extinción es segura aunque la media se mantenga constante: las trayectorias que sobreviven alcanzan tamaños cada vez mayores que compensan a las extintas. Si $\sigma^2 < \infty$, $n\,\mathbb{P}(Z_n > 0) \to 2/\sigma^2$ (Kolmogorov), de modo que la extinción es muy lenta.
+* **Supercrítico.** Con probabilidad $1 - q$ el linaje crece sin cota (dicotomía de la sección 6).
+* **Caso degenerado.** Si $p_1 = 1$ (cada individuo tiene un único hijo), $m = 1$ pero $q = 0$: no hay extinción. La hipótesis $p_1 < 1$ del teorema excluye este caso; el cuaderno lo trata de forma explícita.
+
+**Comportamiento cerca del umbral.** Al aproximarse a $m = 1$ por la derecha, $q \approx 1 - 2(m-1)/\sigma^2$. La función $q(m)$ es **continua pero no derivable en $m = 1$**: ese cambio cualitativo es la *transición de fase* que muestra la gráfica de $q$ frente a $m$.
+
+#### 5.5 Cálculo numérico de $q$
+
+Para $m > 1$ se resuelve $h(t) = g(t) - t = 0$. Como $t = 1$ siempre es raíz, se busca en $[0,\, 1 - \varepsilon]$ con $\varepsilon = 10^{-6}$. En ese intervalo $h(0) = p_0 > 0$ y $h(1-\varepsilon) < 0$, de modo que hay **cambio de signo** y el método de bisección converge a $q$. Para $m \le 1$, `probabilidad_extincion` devuelve directamente $1$. Una alternativa equivalente es la iteración de punto fijo $q_{n+1} = g(q_n)$ desde $q_0 = 0$, que converge de forma monótona a $q$ (paso (ii) de la demostración).
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000004
+md"""
+### 6. Clasificación de estados y comportamiento asintótico
+
+!!! tip "En palabras simples"
+    El estado $0$ es una **trampa**: una vez que se llega, no se sale. Todos los demás estados son solo de paso. Por eso el apellido o bien desaparece, o bien crece sin límite; nunca se estabiliza en un tamaño intermedio.
+
+Se supone $p_0 > 0$ (con descendencia de Poisson, $p_0 = e^{-\lambda} > 0$ siempre).
+
+| Propiedad | Resultado | Justificación |
+|:--|:--|:--|
+| Estado $0$ | **absorbente** y recurrente | $P(0,0) = 1$ |
+| Estados $i \ge 1$ | **transitorios** | desde $i$ se llega a $0$ con probabilidad $p_0^{\,i} > 0$ y de $0$ no se regresa |
+| Irreducibilidad | **no irreducible** | de los estados positivos se llega a $0$, pero no al revés |
+| Clases de comunicación (Poisson) | $\{0\}$ cerrada y $\{1, 2, 3, \dots\}$ abierta | como $p_k > 0$ para todo $k$, los estados positivos se comunican entre sí |
+| Periodicidad | **aperiódica** | $P(i,i) > 0$ para todo $i$ |
+| Distribución estacionaria | única: $\delta_0$ | toda masa en estados transitorios termina disipándose |
+
+**Dicotomía fundamental.** Si $p_1 < 1$ y $Z_0 = 1$, entonces $\mathbb{P}(Z_n \to 0) = q$ y $\mathbb{P}(Z_n \to \infty) = 1 - q$. Ningún estado positivo es visitado infinitas veces, así que el proceso no puede estabilizarse en un tamaño finito positivo.
+
+**Límite de la distribución $\pi_n$.**
+
+* Si $m \le 1$: $\pi_n \to \delta_0$ para cualquier distribución inicial. Toda la masa de probabilidad termina concentrada en el estado $0$, y el tiempo de absorción es finito con probabilidad $1$.
+* Si $m > 1$: $\pi_n(0) \to q^{z_0}$ y $\pi_n(j) \to 0$ para todo $j \ge 1$. La masa restante, $1 - q^{z_0}$, escapa a infinito: no existe distribución límite sobre $S$.
+
+**Consecuencia para el muestreo.** Como el único estado recurrente es $0$ y no hay distribución estacionaria no trivial, no corresponde usar métodos MCMC (cuyo fin es muestrear una distribución estacionaria o *a posteriori*). Lo que interesa es la **trayectoria dinámica** hacia la extinción, y se estudia con **Monte Carlo directo** (hacia adelante) sobre la cadena $\{Z_n\}$.
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000078
+md"""
+### 7. Truncamiento del espacio de estados y métodos numéricos
+
+!!! tip "En palabras simples"
+    La matriz $P$ real tiene infinitas filas y columnas. Para dibujarla se corta en un tope $M$ y todo lo que sea $M$ o más portadores se agrupa en un último estado, "$M+$". Con descendencia Poisson, las filas se calculan con una fórmula directa (sección 7.2).
+
+#### 7.1 Matriz de transición truncada
+
+La matriz $P$ es infinita. Para mostrarla de forma explícita se trunca a $S_M = \{0, 1, \dots, M\}$, agrupando en el último estado a todos los linajes con $M$ o más portadores:
+
+$$P_M(i,j) = P(i,j) \quad (0 \le j < M), \qquad P_M(i,M) = \sum_{j \ge M} P(i,j) = 1 - \sum_{j < M} P(i,j).$$
+
+Para el estado agregado "$M+$" se usa la fila del estado $M$. Esto es una **aproximación**: el proceso agregado no es exactamente markoviano, porque los estados $M, M+1, \dots$ tienen filas distintas. Tratar "$M+$" como si fuera exactamente $M$ subestima el tamaño del linaje y, por tanto, **sobrestima ligeramente la probabilidad de extinción**. El error es pequeño cuando es poco probable superar $M$ (régimen subcrítico con $M$ moderado); el cuaderno lo cuantifica comparando la curva $\mathbb{P}(Z_n = 0)$ de la cadena truncada con la fórmula exacta $[g_n(0)]^{z_0}$.
+
+#### 7.2 Atajo de Poisson para las filas de $P$
+
+Si $X \sim \mathrm{Poisson}(\lambda)$, la suma de $i$ copias independientes es $\mathrm{Poisson}(i\lambda)$. La fila $i$ de $P$ es entonces
+
+$$P(i,j) = e^{-i\lambda}\,\frac{(i\lambda)^{j}}{j!}, \qquad j \ge 0,$$
+
+sin necesidad de calcular convoluciones. La FGP lo confirma: $[g(t)]^i = \big(e^{\lambda(t-1)}\big)^i = e^{i\lambda(t-1)}$, que es la FGP de una Poisson$\left(i\lambda\right)$.
+
+**Nota de implementación.** El constructor `ModeloPBGW(λ; max_hijos)` corta la ley de Poisson en `max_hijos` y **renormaliza** el vector resultante. Para $\lambda \le 4$ y `max_hijos = 20` el error es inferior a $10^{-8}$. Pero para construir las filas de $P$ hace falta la **cola** $\mathbb{P}(X \ge M)$ de una Poisson$\left(i\lambda\right)$, y para ello hay que cortar muy por encima de $M$ (el cuaderno usa `max_hijos = 200`). Un corte en $M$ seguido de renormalización distorsionaría tanto las probabilidades individuales como la columna "$M+$": por ejemplo, con $\lambda = 0{,}5$ y $M = 3$ la entrada $P(3,3+)$ saldría $0{,}134$ en lugar del valor correcto $0{,}191$.
+
+#### 7.3 Métodos numéricos y simulación
+
+* **Bisección** (`biseccion` en `src/numericalMethods.jl`) sobre $h(t) = g(t) - t$, con tolerancia $10^{-5}$ tanto en el intervalo como en el valor de $h$. Converge linealmente y garantiza una raíz porque hay cambio de signo.
+* **Simulación hacia adelante** (`simular_generaciones`): en cada generación se sortea, para cada individuo vivo, su número de hijos con `Categorical(modelo.pk)` y se suman. Es Monte Carlo directo sobre la cadena $\{Z_n\}$.
+* **Estimador de extinción** (`frecuencia_extincion`): fracción de $N$ simulaciones con $Z_G = 0$. Estima $\mathbb{P}(Z_G = 0)$ y no $q^{z_0}$: esa probabilidad crece con $G$ hacia $q^{z_0}$ sin superarlo, de modo que el estimador queda (en promedio) por debajo de la extinción asintótica. Su error estándar es $\sqrt{\hat p(1-\hat p)/N}$.
+* **Tope de población** (`tope_poblacion`): en regímenes supercríticos, un linaje que supera el tope se declara establecido (ya no se extinguirá) y se detiene su simulación. Esto acota el costo computacional sin alterar de forma apreciable el resultado de extinción.
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000079
+md"""
+### 8. Supuestos y limitaciones del modelo aplicado a apellidos
+
+Antes de aplicar el modelo a apellidos reales conviene conocer sus límites. Estos son los supuestos que se hacen y la razón por la que condicionan la lectura de los resultados:
+
+1. **Transmisión patrilineal.** El primer apellido se hereda del padre, de modo que el proceso describe la **línea masculina**: $X$ es el número de **hijos varones** de un hombre y $\lambda$ su media. Si $\mathrm{TGF}$ es la tasa global de fecundidad y la proporción de varones al nacer es cercana a $0{,}512$, entonces $\lambda \approx 0{,}512 \cdot \mathrm{TGF}$, bajo el supuesto de que los hombres tienen en promedio tantos hijos como las mujeres.
+2. **Población inicial.** Los conteos usados como $Z_0$ corresponden a **personas** con el apellido, de ambos sexos. Estrictamente, $Z_0$ debería ser el número de **varones** portadores, aproximadamente la mitad. Usar el total sobrestima el tiempo de extinción en $\ln 2 / \ln(1/\lambda)$ generaciones (una generación cuando $\lambda = 0{,}5$).
+3. **Generaciones discretas y no solapadas.** El modelo agrupa el tiempo en generaciones sucesivas. La conversión a años usa una duración generacional constante de 28 años, que es un supuesto del modelo y no un dato.
+4. **Homogeneidad e independencia.** Todos los portadores comparten la misma ley de descendencia y se reproducen de forma independiente. Se ignoran las diferencias por región, nivel socioeconómico o cohorte, y la tasa se mantiene constante en el tiempo.
+5. **Forma de la ley.** La ley de Poisson impone varianza igual a la media. Otras leyes con la misma media dan el mismo $q$ cuando $m \le 1$ (extinción segura), pero distinto tiempo de extinción, porque la constante $c$ de la sección 4.4 depende de toda la ley.
+6. **Población cerrada.** No se consideran inmigración, cambios de apellido ni la aparición de nuevos portadores por mecanismos distintos de la descendencia paterna.
+7. **Truncamiento numérico.** La ley de Poisson se corta en `max_hijos` y se renormaliza (sección 7.2), con un error despreciable para los valores de $\lambda$ usados.
+
+Estas limitaciones afectan la interpretación cuantitativa. Las conclusiones cualitativas (extinción segura si $m \le 1$ y dependencia logarítmica de $Z_0$) son menos sensibles a ellas.
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000080
+md"""
+### 9. Referencias
+
+- Athreya, K. B. y Ney, P. E. (1972). *Branching Processes*. Springer.
+- Bienaymé, I.-J. (1845). De la loi de multiplication et de la durée des familles. *Société Philomathique de Paris, Extraits*, 5, 37–39.
+- DANE. *Estadísticas Vitales (EEVV): nacimientos y defunciones*, años 2024 y 2025 (preliminar).
+- Galton, F. y Watson, H. W. (1875). On the probability of the extinction of families. *Journal of the Anthropological Institute of Great Britain and Ireland*, 4, 138–144.
+- Grimmett, G. R. y Stirzaker, D. R. (2001). *Probability and Random Processes* (3.ª ed.). Oxford University Press. Sección 5.4.
+- Harris, T. E. (1963). *The Theory of Branching Processes*. Springer.
+- Norris, J. R. (1997). *Markov Chains*. Cambridge University Press.
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000005
+md"""
+---
+
+## Parte II. Análisis interactivo del modelo
+
+### 1. Panel de control
+
+Aquí puedes experimentar: elige la ley de descendencia y sus parámetros, y todas las gráficas de esta parte se actualizan solas. Un buen recorrido es empezar con $\lambda < 1$ (el apellido se extingue) y subirlo por encima de $1$ (el apellido puede sobrevivir) para ver el cambio.
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000006
+md"**Tipo de distribución de natalidad:** $(@bind dist_tipo Select([\"Poisson\" => \"Poisson (λ)\", \"Binomial\" => \"Binomial (n, p)\"], default=\"Poisson\"))"
+
+# ╔═╡ 00000002-0002-0002-0002-000000000007
+md"""
+!!! info "Leyes de descendencia disponibles"
+    - **Poisson(λ).** Cada portador tiene en promedio λ hijos y no existe un máximo fijo (el cuaderno corta la ley en 20 hijos y renormaliza). Es el modelo clásico y se construye con `ModeloPBGW(λ)`. La media es m = λ y la varianza σ² = λ.
+
+    - **Binomial(n, p).** Cada portador tiene como máximo `n` hijos, cada uno con probabilidad `p`. La media es m = n·p y la varianza σ² = n·p·(1 − p). Resulta apropiada cuando existe un número máximo natural de hijos. Se construye pasando el vector `pk` a `ModeloPBGW(pk)`.
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000008
+if dist_tipo == "Poisson"
+	md"**Tasa de natalidad λ** (media de hijos): $(@bind lambda_slider Slider(0.1:0.1:4.0, default=1.5, show_value=true))"
+else
+	md""
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000009
+if dist_tipo == "Binomial"
+	md"**Máximo de hijos (n):** $(@bind n_binom_slider Slider(1:1:15, default=5, show_value=true))"
+else
+	md""
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000010
+if dist_tipo == "Binomial"
+	md"**Probabilidad por hijo (p):** $(@bind p_binom_slider Slider(0.05:0.05:1.0, default=0.4, show_value=true))"
+else
+	md""
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000011
+md"**Población inicial de portadores** ($Z_0$): $(@bind z0_slider Slider(1:1:20, default=1, show_value=true))"
+
+# ╔═╡ 00000002-0002-0002-0002-000000000012
+md"**Generaciones a simular:** $(@bind gen_slider Slider(5:5:200, default=30, show_value=true))"
+
+# ╔═╡ 00000002-0002-0002-0002-000000000013
+md"**Semilla aleatoria:** $(@bind seed_slider Slider(1:100, default=42, show_value=true))"
+
+# ╔═╡ 00000002-0002-0002-0002-000000000014
+begin
+	# ── 1. Construcción del modelo de descendencia ──
+	if dist_tipo == "Poisson"
+		# Poisson(λ) cortada en 20 hijos y renormalizada (sección 7.2 del encabezado)
+		modelo = ModeloPBGW(lambda_slider; max_hijos=20)
+		param_str = "Poisson(λ=$(lambda_slider))"
+	else
+		# Binomial(n, p): tiene soporte finito {0, …, n}, así que no requiere truncamiento.
+		# pk_binom[k+1] = P(X = k)
+		dist_binom = Distributions.Binomial(n_binom_slider, p_binom_slider)
+		pk_binom = [pdf(dist_binom, k) for k in 0:n_binom_slider]
+		pk_binom = pk_binom ./ sum(pk_binom)  # corrige desvíos de redondeo en la suma
+		modelo = ModeloPBGW(pk_binom)
+		param_str = "Binomial(n=$(n_binom_slider), p=$(p_binom_slider))"
+	end
+
+	# ── 2. Cantidades teóricas (sección 5 del encabezado) ──
+	# Media de descendencia m = Σ k·pₖ  (= g'(1))
+	m_esperanza = esperanza(modelo)
+
+	# Caso degenerado p₁ = 1 (cada portador tiene exactamente un hijo): entonces
+	# Zₙ ≡ Z₀ y nunca hay extinción, aunque m = 1. El teorema de extinción exige
+	# p₁ < 1, así que este caso se trata aparte para no reportar q = 1 por error.
+	degenerado = length(modelo.pk) >= 2 && isapprox(modelo.pk[2], 1.0; atol = 1e-12)
+
+	# Probabilidad de extinción partiendo de un individuo: menor raíz de g(q) = q
+	q_extincion = degenerado ? 0.0 : probabilidad_extincion(modelo)
+	extincion_segura = !degenerado && es_extincion_segura(modelo)
+	regimen = degenerado ? "Degenerado (p₁ = 1)" : clasificar_regimen(m_esperanza)
+
+	# Con Z₀ portadores iniciales los linajes son independientes y todos deben
+	# extinguirse, de modo que P(extinción | Z₀) = q^Z₀  (sección 5.3)
+	q_z0 = q_extincion^z0_slider
+
+	texto_segura = if degenerado
+		"No (caso degenerado, p₁ = 1)"
+	else
+		extincion_segura ? "Sí (m ≤ 1)" : "No (m > 1)"
+	end
+
+	md"""
+	#### 1.1 Análisis del modelo: $(param_str)
+
+	| Parámetro | Valor |
+	|:--|:--|
+	| Distribución | **$(param_str)** |
+	| Media de descendencia (m) | **$(round(m_esperanza, digits=4))** — `esperanza(modelo)` |
+	| Régimen | **$(regimen)** |
+	| ¿Extinción segura? | **$(texto_segura)** — `es_extincion_segura(modelo)` |
+	| Probabilidad de extinción (q) | **$(round(q_extincion, digits=6))** — `probabilidad_extincion(modelo)` |
+	| Probabilidad de supervivencia (1 − q) | **$(round(1 - q_extincion, digits=6))** |
+	| Población inicial (Z₀) | **$(z0_slider)** |
+	| Probabilidad de extinción con Z₀ portadores (q^Z₀) | **$(round(q_z0, digits=6))** |
+	"""
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000015
+md"""
+### 2. Distribución de descendencia $\{p_k\}$
+
+Cada portador tiene un número aleatorio de hijos; esta gráfica muestra qué tan probable es cada cantidad. El vector `modelo.pk` almacena las probabilidades: `pk[1]` es $P(X=0)$, `pk[2]` es $P(X=1)$, y así sucesivamente (los vectores de Julia empiezan en el índice 1). La línea discontinua marca la media $m$.
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000016
+begin
+	# Se recorta la cola de probabilidad despreciable (< 1e-6) para que el eje sea legible
+	pk_vec = modelo.pk
+	ultimo_significativo = findlast(x -> x > 1e-6, pk_vec)
+	k_rango = 0:(ultimo_significativo - 1)        # k = número de hijos
+	pk_plot = pk_vec[1:ultimo_significativo]      # pₖ = P(X = k)
+
+	p_dist = bar(
+		collect(k_rango), pk_plot,
+		xlabel = "Número de hijos (k)",
+		ylabel = "Probabilidad P(X = k)",
+		title = "Distribución de descendencia — $(param_str)",
+		label = false, color = :teal, alpha = 0.8,
+		size = (800, 380), xticks = k_rango,
+		ylims = (0, 1.2 * maximum(pk_plot))       # margen superior para que ninguna barra toque el borde
+	)
+	vline!(p_dist, [m_esperanza],
+		label = "Media m = $(round(m_esperanza, digits=3))",
+		color = :red, linewidth = 2, linestyle = :dash)
+	p_dist
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000017
+md"""
+### 3. Función generadora de probabilidad $g(t)$ y punto fijo
+
+`probabilidad_extincion()` calcula $q$ resolviendo $g(t) = t$ (Parte I, sección 5):
+
+- **Panel izquierdo.** $g(t)$ frente a la identidad $y = t$. La probabilidad de extinción es la menor intersección de ambas curvas en $[0,1]$.
+- **Panel derecho.** $h(t) = g(t) - t$. La raíz de $h$ es $q$, hallada con `biseccion()`.
+
+**Qué mirar.** Si $m \le 1$, las curvas solo se tocan en $t = 1$ y por tanto $q = 1$. Si $m > 1$ aparece un segundo cruce más a la izquierda: ese es $q$.
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000018
+begin
+	ts = range(0, 1, length=500)
+	# g(t) evaluada con la FGP del proyecto, y h(t) = g(t) − t, cuya raíz es q
+	g_vals = [fgp(modelo, t) for t in ts]
+	h_vals = g_vals .- ts
+
+	# ¿Existe una raíz de g(t) = t distinta de t = 1? (solo si el modelo es supercrítico)
+	hay_q_interior = q_extincion < 1.0 - 1e-6
+	etiqueta_t1 = hay_q_interior ? "t = 1 (raíz trivial)" : "t = 1 (única raíz, q = 1)"
+
+	p_fgp = plot(layout = (1, 2), size = (950, 440))
+
+	# Panel izquierdo: g(t) frente a la identidad
+	plot!(p_fgp[1], ts, g_vals, label = "g(t) = fgp(modelo, t)", color = :blue, linewidth = 2.5)
+	plot!(p_fgp[1], ts, ts, label = "y = t", color = :gray, linewidth = 1.5, linestyle = :dash)
+	if hay_q_interior
+		scatter!(p_fgp[1], [q_extincion], [q_extincion],
+			label = "q = $(round(q_extincion, digits=4))",
+			color = :red, markersize = 8, markershape = :star5)
+	end
+	scatter!(p_fgp[1], [1.0], [1.0], label = etiqueta_t1, color = :orange, markersize = 6)
+	plot!(p_fgp[1], xlabel = "t", ylabel = "g(t)", title = "FGP y punto fijo",
+		legend = :outerbottom)
+
+	# Panel derecho: h(t) = g(t) − t
+	plot!(p_fgp[2], ts, h_vals, label = "h(t) = g(t) − t", color = :purple, linewidth = 2.5)
+	hline!(p_fgp[2], [0], label = false, color = :gray, linestyle = :dash)
+	if hay_q_interior
+		scatter!(p_fgp[2], [q_extincion], [0],
+			label = "Raíz q = $(round(q_extincion, digits=4))",
+			color = :red, markersize = 8, markershape = :star5)
+	end
+	scatter!(p_fgp[2], [1.0], [0.0], label = etiqueta_t1, color = :orange, markersize = 6)
+	plot!(p_fgp[2], xlabel = "t", ylabel = "h(t)", title = "Raíz de h(t) — biseccion()",
+		legend = :outerbottom)
+
+	p_fgp
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000019
+md"""
+### 4. Trayectorias del linaje — `simular_generaciones()`
+
+Cada línea es una historia posible del linaje. Se genera con `simular_generaciones(modelo, gen; poblacion_inicial=Z₀)`, que simula la cadena $\{Z_n\}$ hacia adelante. Las trayectorias en rojo se extinguieron dentro del horizonte simulado y las verdes siguen vivas al final.
+
+**Qué mirar.** Con $m < 1$ casi todas las líneas caen a cero; con $m > 1$, algunas se extinguen pronto y otras crecen sin parar.
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000020
+md"**Número de trayectorias:** $(@bind n_traj_slider Slider(1:1:20, default=8, show_value=true))"
+
+# ╔═╡ 00000002-0002-0002-0002-000000000021
+begin
+	rng_traj = MersenneTwister(seed_slider)   # generador reproducible a partir de la semilla
+	tope_sim = 10_000                         # tope de población de la simulación (ver nota abajo)
+
+	# Se simulan todas las trayectorias con el mismo generador y en orden
+	trayectorias = [simular_generaciones(modelo, gen_slider;
+			poblacion_inicial = z0_slider, tope_poblacion = tope_sim, rng = rng_traj)
+		for _ in 1:n_traj_slider]
+
+	# Una trayectoria está extinta si termina en 0 al final del horizonte
+	extinta_flag = [tr[end] == 0 for tr in trayectorias]
+	n_extintas = count(extinta_flag)
+	n_vivas = n_traj_slider - n_extintas
+
+	# El eje vertical reserva espacio arriba para la leyenda, de modo que no tape las curvas
+	y_max_traj = maximum(maximum.(trayectorias))
+
+	p_traj = plot(
+		xlabel = "Generación (n)", ylabel = "Portadores (Zₙ)",
+		title = "Trayectorias de Zₙ — $(param_str), Z₀ = $(z0_slider)",
+		size = (850, 450), legend = :topleft,
+		ylims = (-0.03 * y_max_traj, 1.4 * y_max_traj),
+		grid = true, gridstyle = :dash, gridalpha = 0.3
+	)
+
+	# Solo se etiqueta la primera trayectoria de cada tipo para mantener breve la leyenda
+	i_primera_extinta = findfirst(extinta_flag)
+	i_primera_viva = findfirst(!, extinta_flag)
+	for (i, tr) in enumerate(trayectorias)
+		extinta = extinta_flag[i]
+		etiqueta = false
+		if extinta && i == i_primera_extinta
+			etiqueta = "Extinguida (Zₙ = 0)"
+		elseif !extinta && i == i_primera_viva
+			etiqueta = "Sobrevive"
+		end
+		plot!(p_traj, 0:(length(tr) - 1), tr, label = etiqueta,
+			color = extinta ? :red : :green,
+			alpha = extinta ? 0.55 : 0.8, linewidth = extinta ? 1.5 : 2.0)
+	end
+
+	# Nota: cuando un linaje alcanza el tope se declara "establecido" y su población
+	# se congela en el tope. La meseta resultante es un artefacto de la simulación,
+	# no un comportamiento del modelo, y se señala explícitamente.
+	if any(maximum(tr) >= tope_sim for tr in trayectorias)
+		hline!(p_traj, [tope_sim],
+			label = "Tope de simulación ($(tope_sim)): linaje establecido",
+			color = :gray, linestyle = :dot, linewidth = 1.5)
+	end
+
+	p_traj
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000022
+begin
+	# Probabilidad exacta de que el linaje ya se haya extinguido en la generación
+	# gen_slider: [g_G(0)]^Z₀  (sección 4.3). Es la referencia correcta para la
+	# frecuencia observada en un horizonte finito.
+	p_hasta_gen = prob_extincion_hasta(modelo, gen_slider, z0_slider)
+	frec_trayectorias = n_extintas / n_traj_slider
+
+	md"""
+	**De $(n_traj_slider) trayectorias:** $(n_extintas) extintas y $(n_vivas) con linaje vivo al final del horizonte.
+
+	| Cantidad | Valor |
+	|:--|:--|
+	| Frecuencia observada de extinción | **$(round(frec_trayectorias, digits=4))** |
+	| Probabilidad exacta de extinción hasta la generación $(gen_slider) | **$(round(p_hasta_gen, digits=4))** |
+	| Probabilidad asintótica de extinción, q^Z₀ | **$(round(q_z0, digits=4))** |
+
+	Con pocas trayectorias la frecuencia observada fluctúa mucho; la validación cuantitativa se hace en la sección siguiente con miles de simulaciones.
+	"""
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000023
+md"""
+### 5. Validación Monte Carlo — `frecuencia_extincion()`
+
+La idea es simple: se simulan muchos linajes, se cuenta qué fracción se extinguió y se compara con lo que predice la teoría. Hay que comparar cantidades del mismo tipo:
+
+- `frecuencia_extincion(modelo, G)` estima $\mathbb{P}(Z_G = 0)$, la probabilidad de extinción **hasta la generación $G$**. Su valor exacto es $[g_G(0)]^{Z_0}$ (Parte I, sección 4.3) y es la referencia contra la que se mide el error de Monte Carlo.
+- La probabilidad asintótica $q^{Z_0}$ es el límite de $\mathbb{P}(Z_G = 0)$ cuando $G \to \infty$. Esa probabilidad crece con $G$ sin superar nunca a $q^{Z_0}$, y solo se le acerca si $G$ es grande; cerca del umbral $m = 1$ la convergencia es lenta.
+
+El criterio de concordancia es estadístico: la diferencia entre la frecuencia observada y el valor exacto debe quedar dentro de tres errores estándar, $3\sqrt{p(1-p)/N}$.
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000024
+md"**Simulaciones Monte Carlo:** $(@bind n_mc_slider Slider(500:500:10000, default=3000, show_value=true))"
+
+# ╔═╡ 00000002-0002-0002-0002-000000000025
+begin
+	rng_mc = MersenneTwister(seed_slider + 7777)
+
+	# Estimación Monte Carlo con la función del proyecto: fracción de simulaciones con Z_G = 0
+	freq_mc = frecuencia_extincion(modelo, gen_slider;
+		n_sim=n_mc_slider, poblacion_inicial=z0_slider,
+		tope_poblacion=10_000, rng=rng_mc)
+
+	# Referencia teórica exacta al mismo horizonte G = gen_slider
+	p_exacta = prob_extincion_hasta(modelo, gen_slider, z0_slider)
+
+	# Error estándar del estimador (proporción binomial). El piso 1e-12 evita dividir
+	# por cero cuando p_exacta es 0 o 1.
+	se_mc = sqrt(max(p_exacta * (1 - p_exacta), 1e-12) / n_mc_slider)
+	diferencia = abs(freq_mc - p_exacta)
+	z_score = (freq_mc - p_exacta) / se_mc       # desviación en unidades de error estándar
+
+	concordancia = abs(z_score) <= 3 ? "Consistente (a menos de 3 errores estándar)" : "Discrepante (a más de 3 errores estándar)"
+	txt_diferencia = "$(round(diferencia, digits=6)) ($(round(z_score, digits=2)) errores estándar)"
+
+	md"""
+	| Medida | Valor | Cómo se obtiene |
+	|:--|:--|:--|
+	| Extinción asintótica, q^Z₀ | **$(round(q_z0, digits=6))** | `probabilidad_extincion(modelo)` elevada a Z₀ |
+	| Extinción exacta hasta la generación $(gen_slider) | **$(round(p_exacta, digits=6))** | iteración de `fgp`: [gₙ(0)]^Z₀ |
+	| Frecuencia empírica (N = $(n_mc_slider)) | **$(round(freq_mc, digits=6))** | `frecuencia_extincion(modelo, gen_slider)` |
+	| Error estándar | **$(round(se_mc, digits=6))** | √(p(1−p)/N) con p exacta |
+	| Diferencia respecto a la exacta | **$(txt_diferencia)** | |
+	| Concordancia | **$(concordancia)** | |
+	"""
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000026
+md"""
+### 6. Transición de fase: extinción frente a supervivencia
+
+¿Cómo cambia $q$ al variar la media $m$? Mientras $m \le 1$ la extinción es segura ($q = 1$); apenas $m$ pasa de $1$, sobrevivir se vuelve posible y $q$ empieza a bajar. En $m = 1$ se produce una **transición de fase**: $q(m)$ es continua pero no derivable (Parte I, sección 5.4).
+
+Cada punto se calcula con `probabilidad_extincion(ModeloPBGW(λ))`, con descendencia Poisson($\lambda$), para la cual $m = \lambda$:
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000027
+begin
+	lambdas = range(0.1, 4.0, length=100)
+	qs = Float64[]
+	for lam in lambdas
+		# Para cada λ se construye el modelo Poisson y se calcula q con el proyecto:
+		# q = 1 si λ ≤ 1; q = menor raíz de g(t) = t (bisección) si λ > 1
+		mod_temp = ModeloPBGW(lam; max_hijos=20)
+		push!(qs, probabilidad_extincion(mod_temp))
+	end
+
+	p_phase = plot(
+		lambdas, qs,
+		xlabel = "Tasa de natalidad (λ = media m)",
+		ylabel = "Probabilidad de extinción (q)",
+		title = "Transición de fase: q frente a m",
+		label = "q(m) — probabilidad_extincion()",
+		color = :darkblue, linewidth = 3,
+		size = (800, 420), ylims = (-0.05, 1.1), grid = true
+	)
+	vline!(p_phase, [1.0], label = "m = 1 (umbral)", color = :red, linestyle = :dash, linewidth = 2)
+
+	# Se marca el modelo actual solo si es Poisson (la curva q(m) es la de Poisson)
+	if dist_tipo == "Poisson"
+		scatter!(p_phase, [lambda_slider], [q_extincion],
+			label = "Modelo actual (λ=$(lambda_slider))",
+			color = :orange, markersize = 10, markershape = :star5)
+	end
+
+	annotate!(p_phase, 0.5, 0.3, text("Subcrítico\n(extinción segura)", 9, :red))
+	annotate!(p_phase, 2.5, 0.3, text("Supercrítico\n(supervivencia posible)", 9, :green))
+
+	p_phase
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000028
+md"""
+### 7. Tabla resumen para distintas tasas de natalidad
+
+Lo mismo que muestra la gráfica anterior, ahora en números: apenas $\lambda$ supera $1$ aparece una probabilidad positiva de supervivencia ($1 - q > 0$).
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000029
+begin
+	lineas_tabla = [
+		"| λ (media m) | Régimen | q (extinción) | 1 − q (supervivencia) |",
+		"|:--|:--|:--|:--|"
+	]
+	for lam in [0.5, 0.8, 1.0, 1.2, 1.5, 2.0, 2.5, 3.0]
+		mod_t = ModeloPBGW(lam; max_hijos=20)
+		m_t = esperanza(mod_t)                  # media de descendencia del modelo
+		q_t = probabilidad_extincion(mod_t)     # probabilidad de extinción
+		push!(lineas_tabla, "| $(lam) | $(clasificar_regimen(m_t)) | $(round(q_t, digits=4)) | $(round(1 - q_t, digits=4)) |")
+	end
+	Markdown.parse(join(lineas_tabla, "\n"))
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000030
+md"""
+### 8. Probabilidad de absorción con $Z_0 > 1$
+
+Cuando el linaje empieza con $Z_0 > 1$ portadores, cada uno genera un sublinaje **independiente** y todos deben extinguirse para que el apellido desaparezca (propiedad de ramificación, Parte I, sección 2.5):
+
+$$P(\text{extinción} \mid Z_0) = q^{Z_0}.$$
+
+Más portadores iniciales significan más "oportunidades" de sobrevivir, así que la probabilidad de extinción baja de forma exponencial con $Z_0$. Esto puede verificarse con `frecuencia_extincion(modelo, gen; poblacion_inicial=Z₀)`.
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000031
+begin
+	z0_vals = 1:10
+	q_z0_vals = [q_extincion^z for z in z0_vals]       # q^Z₀ para Z₀ = 1, …, 10
+
+	# Formato de porcentaje que no oculta valores pequeños pero no nulos
+	function fmt_pct(x)
+		x == 0 && return "0%"
+		x < 0.001 && return "<0.1%"
+		return string(round(x * 100, digits = 1), "%")
+	end
+
+	p_absorcion = bar(
+		collect(z0_vals), q_z0_vals,
+		xlabel = "Población inicial Z₀",
+		ylabel = "P(extinción) = q^Z₀",
+		title = "Efecto de Z₀ — $(param_str) (q = $(round(q_extincion, digits=3)))",
+		label = false,
+		color = [qz < 0.5 ? :green : :red for qz in q_z0_vals],   # verde si la extinción es menos probable que no
+		alpha = 0.8, size = (800, 420), xticks = z0_vals,
+		ylims = (0, 1.3), yticks = 0:0.25:1                       # margen para etiquetas y leyenda; marcas solo en [0, 1]
+	)
+	hline!(p_absorcion, [0.5], label = "Umbral 50%", color = :gray, linestyle = :dash)
+	for (z, q_z) in zip(z0_vals, q_z0_vals)
+		annotate!(p_absorcion, z, q_z + 0.05, text(fmt_pct(q_z), 7, :center))
+	end
+	p_absorcion
+end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000032
+md"""
+### 9. Resumen y conclusiones de la Parte II
+
+**Lo que nos llevamos de esta parte:**
+
+- **Todo gira en torno a $m$**, la media de hijos por portador: si $m \leq 1$ la extinción es segura; si $m > 1$, el apellido puede sobrevivir.
+- **La FGP da respuestas exactas.** Resolver $g(t) = t$ entrega la probabilidad de extinción $q$, e iterar $g_n(0)$ entrega la probabilidad de que el apellido ya se haya extinguido en cada generación $n$.
+- **La simulación confirma la teoría.** `frecuencia_extincion` coincide con $[g_G(0)]^{Z_0}$ dentro del error estadístico, y se mantiene por debajo de `probabilidad_extincion` elevada a $Z_0$.
+- **Más portadores iniciales, extinción menos probable.** Con $Z_0 > 1$, la probabilidad de extinción es $q^{Z_0}$ y disminuye exponencialmente.
+
+**Funciones del proyecto utilizadas en este cuaderno:**
+
+| Función | Archivo | Propósito |
+|:--|:--|:--|
+| `ModeloPBGW(λ)` / `ModeloPBGW(pk)` | `src/markovModels.jl` | Construir el modelo con descendencia Poisson o con un vector explícito |
+| `esperanza(modelo)` | `src/markovModels.jl` | Media de descendencia $m$ |
+| `es_extincion_segura(modelo)` | `src/markovModels.jl` | Verificar si $m \leq 1$ |
+| `fgp(modelo, t)` | `src/markovModels.jl` | Función generadora $g(t)$ |
+| `probabilidad_extincion(modelo)` | `src/markovModels.jl` | Resolver $g(t) = t$ con bisección |
+| `simular_generaciones(modelo, gen)` | `src/markovModels.jl` | Simular una trayectoria de $\{Z_n\}$ |
+| `frecuencia_extincion(modelo, gen)` | `src/markovModels.jl` | Monte Carlo: fracción de linajes extintos |
+| `biseccion(h, a, b)` | `src/numericalMethods.jl` | Búsqueda de raíces (usada internamente) |
+| `secante(h, a, b)` | `src/numericalMethods.jl` | Búsqueda de raíces (alternativa) |
+
+---
+*Cuaderno interactivo del proyecto [Evolución y Extinción de Apellidos](https://github.com/spartan14799/Evolucion-y-Extincion-de-apellidos)*
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000040
+md"""
+---
+
+## Parte III. Aplicación: ¿cuándo se extinguirán los apellidos de Colombia?
+### 1. Proceso de Bienaymé–Galton–Watson con los apellidos más frecuentes del país
+
+#### 1.1 Contexto demográfico
+
+En Colombia la tasa global de fecundidad (TGF) ha bajado de forma sostenida. Según el DANE (Estadísticas Vitales), fue de **1,1 hijos por mujer en 2024** y de **1,0 en 2025** (cifra preliminar), muy por debajo del nivel de reemplazo, de aproximadamente 2,1 hijos por mujer.
+
+Como tradicionalmente el primer apellido lo transmite el padre (supuesto 1 de la Parte I, sección 8):
+
+- Con una TGF cercana a 1,0 y una proporción de varones al nacer de aproximadamente 0,512, cada hombre que porta el apellido tiene en promedio $\lambda \approx 0{,}51$ hijos varones que continuarán su linaje. El valor por defecto del control, $\lambda = 0{,}5$, resume este caso.
+- Como $m = \lambda < 1$, el linaje está en **régimen subcrítico** y, por el teorema de la Parte I (sección 5), la extinción matemática es **segura** ($q = 1$).
+
+La pregunta deja de ser *si* el apellido se extingue y pasa a ser **cuándo**: ¿en cuántas generaciones desaparecerían los apellidos más numerosos de Colombia? Con el control de $\lambda$ puedes explorar también valores mayores que 1 (régimen supercrítico).
+"""
+
+# ╔═╡ 00000002-0002-0002-0002-000000000041
+md"**Seleccione un apellido de Colombia:** $(@bind ap_col_select Select([\"Rodríguez\" => \"1. Rodríguez (754.991 personas)\", \"Martínez\" => \"2. Martínez (602.593 personas)\", \"García\" => \"3. García (574.856 personas)\", \"Gómez\" => \"4. Gómez (569.534 personas)\", \"López\" => \"5. López (565.394 personas)\", \"Hernández\" => \"6. Hernández (502.626 personas)\", \"Pérez\" => \"7. Pérez (493.764 personas)\", \"Sánchez\" => \"8. Sánchez (487.112 personas)\", \"González\" => \"9. González (470.505 personas)\", \"Ramírez\" => \"10. Ramírez (441.179 personas)\"], default=\"Rodríguez\"))"
+
+# ╔═╡ 00000002-0002-0002-0002-000000000042
+md"**Tasa de natalidad masculina $\lambda$** (hijos varones promedio por hombre): $(@bind lambda_col_slider Slider(0.1:0.05:1.2, default=0.5, show_value=true))"
+
 # ╔═╡ 00000002-0002-0002-0002-000000000043
 md"**Evaluar la probabilidad de extinción acumulada hasta la generación ($X$):** $(@bind gen_eval_slider Slider(5:1:40, default=20, show_value=true))"
 
@@ -1323,44 +1420,11 @@ begin
 	Markdown.parse(join(filas_tabla, "\n"))
 end
 
-# ╔═╡ 00000002-0002-0002-0002-000000000069
-begin
-	gens_curva_p = 0:25
-	z0_curva = min(z0_markov_slider, M_dim)
-
-	# Curva de la cadena truncada: P(Zₙ = 0) es la componente 0 de πₙ = π₀ Pⁿ
-	prob_ext_cadena = Float64[]
-	vec_t = zeros(Float64, M_dim + 1)
-	vec_t[z0_curva + 1] = 1.0
-	for g in gens_curva_p
-		push!(prob_ext_cadena, vec_t[1])          # P(Z_g = 0)
-		vec_t = vec(vec_t' * P_mat)
-	end
-
-	# Curva exacta del proceso sin truncar: P(Zₙ = 0) = [gₙ(0)]^Z₀ (sección 4.3)
-	prob_ext_exacta = prob_extincion_curva(modelo_colombia, last(gens_curva_p), z0_curva)
-
-	# La leyenda va debajo del área de datos para no tapar ninguna de las curvas
-	p_ext_acum = plot(
-		gens_curva_p, prob_ext_cadena,
-		xlabel = "Generación (n)", ylabel = "Probabilidad acumulada P(Zₙ = 0)",
-		title = "Curva de absorción: ¿con qué rapidez cae la cadena al estado 0?",
-		label = "Cadena truncada (matriz P)", color = :red, linewidth = 3,
-		size = (800, 460), ylims = (0.0, 1.05), grid = true,
-		legend = :outerbottom, legend_columns = 2
-	)
-	plot!(p_ext_acum, gens_curva_p, prob_ext_exacta,
-		label = "Proceso exacto: [gₙ(0)]^Z₀", color = :black, linewidth = 2, linestyle = :dash)
-	hline!(p_ext_acum, [0.5], label = "Mediana (50 %)", color = :gray, linestyle = :dash)
-	hline!(p_ext_acum, [1.0], label = "Absorción total (100 %)", color = :black, linestyle = :dot)
-	p_ext_acum
-end
-
 # ╔═╡ 00000002-0002-0002-0002-000000000047
 md"""
-### Aspectos numéricos y tipo de Monte Carlo utilizado
+### 2. Aspectos numéricos y tipo de Monte Carlo utilizado
 
-#### 1. Cómo se simula y qué aporta la propiedad reproductiva de Poisson
+#### 2.1 Cómo se simula y qué aporta la propiedad reproductiva de Poisson
 
 En `src/markovModels.jl`, `simular_generaciones` recorre los individuos uno por uno y sortea el número de hijos de cada uno con la distribución categórica `Categorical(modelo.pk)`:
 
@@ -1376,7 +1440,7 @@ $$\sum_{i=1}^{Z_n} X_i \sim \mathrm{Poisson}(Z_n \lambda).$$
 
 Esta identidad tiene dos usos:
 
-* **Construcción exacta de $P$.** La fila $i$ de la matriz de transición es una Poisson$\left(i\lambda\right)$ (sección 7.2), por lo que la matriz de la Parte IV se obtiene sin convoluciones.
+* **Construcción exacta de $P$.** La fila $i$ de la matriz de transición es una Poisson$\left(i\lambda\right)$ (Parte I, sección 7.2), por lo que la matriz de la sección 2.6 se obtiene sin convoluciones.
 * **Simulación más rápida (no implementada).** Permitiría generar cada generación con un único sorteo Poisson$\left(Z_n\lambda\right)$, de costo constante. La implementación actual suma individuo por individuo: es exacta y equivalente en distribución, pero su costo crece con el tamaño de la población, del orden de $10^5$ a $10^6$ portadores en esta sección. Por eso los cálculos de esta parte son más lentos que los de la Parte II.
 """
 
@@ -1473,7 +1537,7 @@ begin
 	txt_regimen = clasificar_regimen(m_esp)
 
 	md"""
-	### Resultados del Monte Carlo para **$(ap_col_select)**
+	### 3. Resultados del Monte Carlo para **$(ap_col_select)**
 
 	| Métrica | Valor | Significado y validación teórica |
 	|:---|:---|:---|
@@ -1482,11 +1546,11 @@ begin
 	| **Régimen del proceso** | **$(txt_regimen)** | Evaluado con `es_extincion_segura(modelo)` |
 	| **Probabilidad asintótica de extinción (q)** | **$(round(q_teorico * 100, digits=2))%** | Calculada con `probabilidad_extincion(modelo)` |
 	| **Extinción hasta la generación $(gen_eval_slider), Monte Carlo** | **$(round(prob_ext_X * 100, digits=2))%** | Fracción observada con `simular_generaciones` |
-	| **Extinción hasta la generación $(gen_eval_slider), teoría exacta** | **$(round(prob_ext_X_teo * 100, digits=2))%** | [gₙ(0)]^Z₀ por iteración de `fgp` (sección 4.3) |
+	| **Extinción hasta la generación $(gen_eval_slider), teoría exacta** | **$(round(prob_ext_X_teo * 100, digits=2))%** | [gₙ(0)]^Z₀ por iteración de `fgp` (Parte I, sección 4.3) |
 	| **Generación mediana de extinción, Monte Carlo** | **$(txt_mediana_mc)** | El 50 % de las simulaciones se extinguió en esa generación o antes |
 	| **Generación mediana de extinción, teoría exacta** | **$(txt_mediana_teo)** | Menor n con [gₙ(0)]^Z₀ ≥ 1/2 |
 	| **Generación media de extinción, Monte Carlo** | **$(txt_media_mc)** | Promedio aritmético de los tiempos de extinción |
-	| **Aproximación determinista** | **Gen $(round(t_teorico, digits=1))** | Término dominante T ≈ ln(Z₀) / ln(1/m) de la sección 4.4 |
+	| **Aproximación determinista** | **Gen $(round(t_teorico, digits=1))** | Término dominante T ≈ ln(Z₀) / ln(1/m) (Parte I, sección 4.4) |
 	"""
 end
 
@@ -1695,10 +1759,19 @@ begin
 	else
 		md"""
 		!!! note "Dependencia de la población inicial"
-		    Con λ = $(lam_txt) ≥ 1 el proceso no es subcrítico y la fórmula logarítmica del tiempo de extinción no aplica. En el caso crítico (λ = 1) la extinción es segura pero muy lenta; en el supercrítico (λ > 1) la extinción tiene probabilidad menor que 1 y, para poblaciones de cientos de miles de portadores, es prácticamente imposible (sección 5).
+		    Con λ = $(lam_txt) ≥ 1 el proceso no es subcrítico y la fórmula logarítmica del tiempo de extinción no aplica. En el caso crítico (λ = 1) la extinción es segura pero muy lenta; en el supercrítico (λ > 1) la extinción tiene probabilidad menor que 1 y, para poblaciones de cientos de miles de portadores, es prácticamente imposible (Parte I, sección 5).
 		"""
 	end
 end
+
+# ╔═╡ 00000002-0002-0002-0002-000000000091
+md"""
+### 4. Conclusiones de la Parte III
+
+- **La extinción es cuestión de tiempo, no de si ocurre.** Con $\lambda < 1$ (el caso colombiano), todo apellido se extingue con probabilidad $1$.
+- **El tamaño ayuda poco.** El tiempo de extinción crece con el *logaritmo* de la población inicial: duplicar los portadores añade solo $\ln 2 / \ln(1/\lambda)$ generaciones, es decir, una sola cuando $\lambda = 0{,}5$.
+- **Los resultados son orientativos.** Dependen de los supuestos de la Parte I (sección 8): línea patrilineal, tasa constante, población cerrada y generaciones de unos 28 años.
+"""
 
 # ╔═╡ 4c85c2e9-5396-43d7-bea1-aed1414de316
 html"""
@@ -1712,22 +1785,27 @@ html"""
 # ╔═╡ Cell order:
 # ╟─00000002-0002-0002-0002-000000000001
 # ╟─00000002-0002-0002-0002-000000000085
-# ╠═00000002-0002-0002-0002-000000000002
+# ╟─00000002-0002-0002-0002-000000000002
 # ╟─00000002-0002-0002-0002-000000000074
 # ╟─00000002-0002-0002-0002-000000000075
 # ╟─00000002-0002-0002-0002-000000000084
+# ╟─00000002-0002-0002-0002-000000000086
 # ╟─00000002-0002-0002-0002-000000000062
 # ╟─00000002-0002-0002-0002-000000000063
+# ╟─00000002-0002-0002-0002-000000000087
 # ╟─00000002-0002-0002-0002-000000000083
-# ╠═00000002-0002-0002-0002-000000000064
+# ╟─00000002-0002-0002-0002-000000000064
 # ╟─00000002-0002-0002-0002-000000000065
 # ╟─00000002-0002-0002-0002-000000000072
 # ╟─00000002-0002-0002-0002-000000000073
+# ╟─00000002-0002-0002-0002-000000000088
 # ╟─00000002-0002-0002-0002-000000000066
 # ╟─00000002-0002-0002-0002-000000000067
+# ╟─00000002-0002-0002-0002-000000000089
 # ╟─00000002-0002-0002-0002-000000000068
+# ╟─00000002-0002-0002-0002-000000000090
 # ╟─00000002-0002-0002-0002-000000000069
-# ╠═00000002-0002-0002-0002-000000000076
+# ╟─00000002-0002-0002-0002-000000000076
 # ╟─00000002-0002-0002-0002-000000000077
 # ╟─00000002-0002-0002-0002-000000000003
 # ╟─00000002-0002-0002-0002-000000000004
@@ -1751,7 +1829,7 @@ html"""
 # ╟─00000002-0002-0002-0002-000000000019
 # ╟─00000002-0002-0002-0002-000000000020
 # ╟─00000002-0002-0002-0002-000000000021
-# ╠═00000002-0002-0002-0002-000000000022
+# ╟─00000002-0002-0002-0002-000000000022
 # ╟─00000002-0002-0002-0002-000000000023
 # ╟─00000002-0002-0002-0002-000000000024
 # ╟─00000002-0002-0002-0002-000000000025
@@ -1764,15 +1842,16 @@ html"""
 # ╟─00000002-0002-0002-0002-000000000032
 # ╟─00000002-0002-0002-0002-000000000040
 # ╟─00000002-0002-0002-0002-000000000041
-# ╠═00000002-0002-0002-0002-000000000042
+# ╟─00000002-0002-0002-0002-000000000042
 # ╟─00000002-0002-0002-0002-000000000043
 # ╟─00000002-0002-0002-0002-000000000044
 # ╟─00000002-0002-0002-0002-000000000045
 # ╟─00000002-0002-0002-0002-000000000046
-# ╠═00000002-0002-0002-0002-000000000047
+# ╟─00000002-0002-0002-0002-000000000047
 # ╟─00000002-0002-0002-0002-000000000048
 # ╟─00000002-0002-0002-0002-000000000049
 # ╟─00000002-0002-0002-0002-000000000050
 # ╟─00000002-0002-0002-0002-000000000051
 # ╟─00000002-0002-0002-0002-000000000052
+# ╟─00000002-0002-0002-0002-000000000091
 # ╟─4c85c2e9-5396-43d7-bea1-aed1414de316
